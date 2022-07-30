@@ -21,8 +21,11 @@ setup(
     python_requires='>=3.8',
     install_requires=[
         'aiohttp',
+        'beautifulsoup4',
         'click',
+        'lxml',
         'pandas',
+        'pandas-market-calendars',
         'requests',
         'sqlalchemy-unchained',
     ],

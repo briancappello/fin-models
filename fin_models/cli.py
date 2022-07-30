@@ -1,15 +1,18 @@
 import asyncio
+import random
+
+from datetime import timedelta
 
 import aiohttp
 import click
 import pandas as pd
 
-from pandas.tseries.frequencies import to_offset
-
+from fin_models.calendar import Calendar
 from fin_models.store import Store
 from fin_models.vendors import polygon, yahoo
 
 
+nyse = Calendar('NYSE')
 store = Store()
 
 
@@ -66,12 +69,15 @@ def init():
                if not store.has(symbol)]
 
     async def dl(session, symbol):
+        await asyncio.sleep(random.random() * 2)
         url, cookies = yahoo.get_yfi_url_and_cookies(symbol)
         try:
             print(f'Fetching {symbol}')
             async with session.get(url, cookies=cookies, headers={
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:89.0) '
-                              'Gecko/20100101 Firefox/89.0',
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0',
+                'Host': 'query1.finance.yahoo.com',
+                'Origin': 'https://finance.yahoo.com',
+                'Referer': f'https://finance.yahoo.com/chart/{symbol}',
             }) as r:
                 data = await r.json()
                 if r.status != 200:
@@ -88,7 +94,7 @@ def init():
     async def dl_all(symbols):
         errors = []
         async with aiohttp.ClientSession() as session:
-            for batch in chunk(symbols, 8):
+            for batch in chunk(symbols, 5):
                 tasks = [dl(session, symbol) for symbol in batch]
                 results = await asyncio.gather(*tasks, return_exceptions=False)
                 errors.extend([error for error in results if error])
@@ -111,6 +117,40 @@ def init():
     click.echo('Done')
 
 
+@cli.command()
+@click.pass_context
+def update(ctx):
+    # metadata = store.metadata
+    # if not metadata.latest:
+    #     return ctx.invoke(init)
+
+    symbols = store.symbols()
+    latest = store.read(symbols[0]).index[-1]
+    dates_needed = nyse.get_valid_dates(latest + timedelta(days=1))
+
+    def no_action_bar(ticker, ts):
+        prior_bar = store.read(ticker).iloc[-1]
+        return pd.DataFrame.from_records([dict(
+            Epoch=ts,
+            Open=prior_bar.Close,
+            High=prior_bar.Close,
+            Low=prior_bar.Close,
+            Close=prior_bar.Close,
+            Volume=0,
+        )], index='Epoch')
+
+    bars_by_symbol = {}
+    for day in dates_needed:
+        print(f'fetching {day}')
+        for symbol, bar in polygon.daily_bars(day).items():
+            if symbol in bars_by_symbol:
+                bars_by_symbol[symbol] = pd.concat([bars_by_symbol[symbol], bar])
+            else:
+                bars_by_symbol[symbol] = bar
+
+    for symbol, bars in bars_by_symbol.items():
+        if store.has(symbol):
+            store.append(symbol, bars)
 
 
 # all you really care about is the tickers

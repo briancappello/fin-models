@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import requests
 
-# from cachetools import cached, TTLCache
 from datetime import date, datetime, time, timedelta, timezone
 from dateutil.parser import parse as _parse_dt
 from dateutil.tz import gettz
@@ -57,13 +56,55 @@ def sanitize_dates(start=None, end=None, timeframe='1d'):
     return to_est(start), to_est(end)
 
 
+class CookieCrumbCache:
+    def __init__(self,
+                 url: str = 'https://finance.yahoo.com/chart/AMD',
+                 max_age: Optional[timedelta] = timedelta(hours=6)):
+        self._url = url
+        self._max_age = max_age
+        self._cookies = None
+        self._crumb = None
+        self._time_fetched = None
+
+    @property
+    def cookies(self):
+        self._maybe_refresh()
+        return self._cookies
+
+    @property
+    def crumb(self):
+        self._maybe_refresh()
+        return self._crumb
+
+    def _maybe_refresh(self):
+        is_expired = not self._time_fetched or (
+                datetime.now() - self._time_fetched > self._max_age
+        )
+        if is_expired:
+            self._time_fetched = datetime.now()
+            self._crumb, self._cookies = self.get_yfi_crumb_and_cookies(self._url)
+
+    @staticmethod
+    def get_yfi_crumb_and_cookies(url):
+        r = requests.get(url, headers={
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0',
+        })
+        html = str(r.content)
+        start_search = '"CrumbStore":{"crumb":"'
+        start_idx = html.find(start_search) + len(start_search)
+        crumb = html[start_idx:html.find('"}', start_idx)]
+        return crumb, r.cookies
+
+
+cookie_crumb_cache = CookieCrumbCache()
+
+
 def get_yfi_url_and_cookies(
     ticker: str,
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
     timeframe: str = '1d',
 ) -> Tuple[str, RequestsCookieJar]:
-    crumb, cookies = get_yfi_crumb_and_cookies(f'https://finance.yahoo.com/chart/{ticker.upper()}')
     start, end = sanitize_dates(start, end, timeframe)
     q = {'symbol': ticker,
          'period1': int(start.timestamp()),
@@ -72,12 +113,12 @@ def get_yfi_url_and_cookies(
          'useYfid': 'true',
          'includePrePost': 'false',
          'events': 'div|split|earn',
-         'crumb': crumb,
+         'crumb': cookie_crumb_cache.crumb,
          'corsDomain': 'finance.yahoo.com',
          'lang': 'en-US',
          'region': 'US',
          }
-    return BASE_URL.format(ticker=ticker, query=urlencode(q)), cookies
+    return BASE_URL.format(ticker=ticker, query=urlencode(q)), cookie_crumb_cache.cookies
 
 
 def yfi_json_to_df(json, timeframe='1d') -> pd.DataFrame:
@@ -128,31 +169,18 @@ def get_df(ticker, start=None, end=None, timeframe='1d') -> pd.DataFrame:
     return yfi_json_to_df(r.json(), timeframe)
 
 
-def get_yfi_crumb_and_cookies(base_url):
-    r = requests.get(base_url, headers={
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0',
-    })
-    html = str(r.content)
-    start_search = '"CrumbStore":{"crumb":"'
-    start_idx = html.find(start_search) + len(start_search)
-    crumb = html[start_idx:html.find('"}', start_idx)]
-    return crumb, r.cookies
-
-
 def get_most_actives(
         region: str = 'us',
         min_intraday_vol: int = 250_000,
         min_intraday_price: float = 1.0,
         num_results: int = 100,
 ) -> pd.DataFrame:
-    crumb, cookies = get_yfi_crumb_and_cookies('https://finance.yahoo.com/most-active')
-
     url = 'https://query1.finance.yahoo.com/v1/finance/screener?' + urlencode({
         'lang': 'en-US',
         'region': region.upper(),
         'formatted': 'true',
         'corsDomain': 'finance.yahoo.com',
-        'crumb': crumb,
+        'crumb': cookie_crumb_cache.crumb,
     })
 
     r = requests.post(url, json={
@@ -175,7 +203,7 @@ def get_most_actives(
         'Host': 'query1.finance.yahoo.com',
         'Origin': 'https://finance.yahoo.com',
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0',
-    }, cookies=cookies)
+    }, cookies=cookie_crumb_cache.cookies)
 
     data = r.json()['finance']
     if 'error' in data and data['error']:

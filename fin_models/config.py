@@ -13,4 +13,4 @@ class Config:
         db=os.getenv('SQLALCHEMY_DATABASE_NAME', 'fun_techan'),
     )
 
-    POLYGON_API_KEY = 'RphS7ZhWO4ZD_uV8WF8w9dZiZbe63Qd6'
+    POLYGON_API_KEY = os.getenv('POLYGON_API_KEY', 'RphS7ZhWO4ZD_uV8WF8w9dZiZbe63Qd6')
