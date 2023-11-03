@@ -10,18 +10,18 @@ class ByNameAndValueEnumMeta(EnumMeta):
 
 
 class AssetType(Enum):
-    Asset = 'Asset'
-    Equity = 'Equity'
+    Asset = "Asset"
+    Equity = "Equity"
 
 
 class Frequency(Enum, metaclass=ByNameAndValueEnumMeta):
-    Minutely = '1m'
-    FiveMinutely = '5m'
-    TenMinutely = '10m'
-    FifteenMinutely = '15m'
-    ThirtyMinutely = '30m'
-    Hourly = '1hr'
-    Daily = 'D'
-    Weekly = 'W'
-    Monthly = 'M'
-    Yearly = 'Y'
+    Minutely = "1m"
+    FiveMinutely = "5m"
+    TenMinutely = "10m"
+    FifteenMinutely = "15m"
+    ThirtyMinutely = "30m"
+    Hourly = "1hr"
+    Daily = "D"
+    Weekly = "W"
+    Monthly = "M"
+    Yearly = "Y"

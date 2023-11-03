@@ -1,0 +1,6 @@
+CGC
+    - time below sma 100
+    - abnormal volume
+    - contracting bbands
+    - MACD divergence
+    - higher lows price action, triangle formation, breakout 8/30

@@ -1,22 +1,22 @@
 from .. import db
-from ..utils import utcnow
-
 from ..enums import Frequency
+from ..utils import utcnow
 
 
 class AssetDataVendor(db.Model):
     """Join table between Asset and DataVendor"""
+
     class Meta:
-        repr = ('asset_id', 'data_vendor_id', 'ticker')
+        repr = ("asset_id", "data_vendor_id", "ticker")
 
-    asset_id = db.foreign_key('Asset', primary_key=True)
-    asset = db.relationship('Asset', back_populates='asset_data_vendors')
+    asset_id = db.foreign_key("Asset", primary_key=True)
+    asset = db.relationship("Asset", back_populates="asset_data_vendors")
 
-    data_vendor_id = db.foreign_key('DataVendor', primary_key=True)
-    data_vendor = db.relationship('DataVendor', back_populates='data_vendor_assets')
+    data_vendor_id = db.foreign_key("DataVendor", primary_key=True)
+    data_vendor = db.relationship("DataVendor", back_populates="data_vendor_assets")
 
     # vendor-specific ticker (if different from canonical ticker)
-    _ticker = db.Column('ticker', db.String(16), nullable=True)
+    _ticker = db.Column("ticker", db.String(16), nullable=True)
 
     minutely_last_updated = db.Column(db.DateTime(), nullable=True)
     daily_last_updated = db.Column(db.DateTime(), nullable=True)

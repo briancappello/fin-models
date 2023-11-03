@@ -1,1 +1,1 @@
-from . import dowjones, nasdaq, russell, sp
+from . import dowjones, nasdaq, sp

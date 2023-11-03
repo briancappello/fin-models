@@ -1,4 +1,5 @@
 import io
+
 import pandas as pd
 import requests
 
@@ -15,24 +16,31 @@ def get_exchange_df(url):
 
     Indexed by ticker with columns: company_name, last_sale, market_cap, sector, industry
     """
-    r = requests.get(url, headers={
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0',
-    })
-    d = r.json()['data']
-    df = (
-        pd.DataFrame.from_records(d['rows'], columns=d['headers'])
-        .drop(columns=['country', 'ipoyear', 'netchange', 'pctchange', 'url'])
-        .rename(columns={
-            'symbol': 'ticker',
-            'name': 'company_name',
-            'lastsale': 'last_sale',
-            'marketCap': 'market_cap',
-        })
+    r = requests.get(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0"
+            ),
+        },
     )
-    df = df[~df['ticker'].str.contains(r'\^')].set_index('ticker')
-    df['last_sale'] = df['last_sale'].apply(lambda p: float(p.strip('$')))
-    df['market_cap'] = df['market_cap'].apply(lambda mc: int(mc.split('.')[0] or "0"))
-    df['volume'] = df['volume'].apply(int)
+    d = r.json()["data"]
+    df = (
+        pd.DataFrame.from_records(d["rows"], columns=d["headers"])
+        .drop(columns=["country", "ipoyear", "netchange", "pctchange", "url"])
+        .rename(
+            columns={
+                "symbol": "ticker",
+                "name": "company_name",
+                "lastsale": "last_sale",
+                "marketCap": "market_cap",
+            }
+        )
+    )
+    df = df[~df["ticker"].str.contains(r"\^")].set_index("ticker")
+    df["last_sale"] = df["last_sale"].apply(lambda p: float(p.strip("$")))
+    df["market_cap"] = df["market_cap"].apply(lambda mc: int(mc.split(".")[0] or "0"))
+    df["volume"] = df["volume"].apply(int)
     return df
 
 
