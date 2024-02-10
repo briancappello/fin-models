@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from datetime import date, timedelta
 
 import click
@@ -7,7 +9,8 @@ import pandas as pd
 
 from fin_models.bulk_downloader import bulk_download
 from fin_models.date_utils import to_ts
-from fin_models.services import timeframe_stores
+from fin_models.enums import Freq
+from fin_models.services import store
 from fin_models.utils import chunk
 from fin_models.vendors import polygon, yahoo
 
@@ -46,25 +49,21 @@ def init_command(
     end: str | None = None,
     timeframe: str = "day",
 ):
+    freq = {"minute": Freq.min_1, "day": Freq.day}[timeframe]
     types = polygon.normalize_ticker_types(types)
     end = to_ts(end, default=date.today())
     start = to_ts(start, default=end - timedelta(days=365 * 5))
 
     all_symbols_data = polygon.get_tickers(types)
-    tickers = [
-        d["ticker"]
-        for d in all_symbols_data
-        if not timeframe_stores[timeframe].has(d["ticker"])
-    ]
+    tickers = [d["ticker"] for d in all_symbols_data if not store.has(d["ticker"], freq)]
 
-    init(tickers, start, end, timeframe)
+    init(tickers, start, end, freq)
 
 
-def init(symbols_: list[str], start, end, timeframe: str = "day"):
-    store = timeframe_stores[timeframe]
-    if timeframe == "day":
+def init(symbols_: list[str], start, end, freq: Freq):
+    if freq == Freq.day:
         urls = [
-            polygon.make_history_url(symbol, timeframe, start, end) for symbol in symbols_
+            polygon.make_history_url(symbol, Freq.day, start, end) for symbol in symbols_
         ]
         for batch in chunk(urls, 200):
             successes, errors, exceptions = bulk_download(batch)
@@ -72,10 +71,10 @@ def init(symbols_: list[str], start, end, timeframe: str = "day"):
                 df = polygon.json_to_df(resp.json)
                 m = polygon.HISTORY_URL_REGEX.match(resp.url)
                 symbol = m.groupdict()["symbol"]
-                store.write(symbol, df)
+                store.write(symbol, df, freq)
                 print(f"{symbol}: Added {len(df)} bars")
 
-    elif timeframe == "minute":
+    elif freq == Freq.min_1:
         for symbol in symbols_:
             urls = polygon.make_minutely_urls(symbol, start, end)
             successes, errors, exceptions = bulk_download(urls)
@@ -86,9 +85,12 @@ def init(symbols_: list[str], start, end, timeframe: str = "day"):
 
             dataframes = []
             for r in successes:
-                dataframes.append(polygon.json_to_df(r.json))
+                try:
+                    dataframes.append(polygon.json_to_df(r.json))
+                except json.JSONDecodeError:
+                    break
 
             if dataframes and len(dataframes) == len(successes):
                 df = pd.concat(dataframes).sort_index()
-                store.write(symbol, df)
+                store.write(symbol, df, freq)
                 print(f"{symbol}: Added {len(df)} bars")

@@ -68,3 +68,18 @@ class CompanyDetailsSerializer(BaseSerializer):
     total_employees = fields.Integer(required=False, allow_none=True)
     type = fields.String(required=False, allow_none=True)
     weighted_shares_outstanding = fields.Integer(required=False, allow_none=True)
+
+
+class HistoricalMetadataSerializer(BaseSerializer):
+    __model__ = HistoricalMetadata
+
+    freq = fields.Enum(Freq, by_value=True)
+    first_bar_utc = DateTimeUTC()
+    latest_bar_utc = DateTimeUTC()
+    timezone = fields.String(load_default="America/New_York")
+
+    Open = fields.Float()
+    High = fields.Float()
+    Low = fields.Float()
+    Close = fields.Float()
+    Volume = fields.Integer()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import importlib
+import  typing as t
 
 import pandas as pd
 
@@ -28,7 +29,7 @@ class StrategyRunner:
         self.strategies = self.load_strategies(strategies)
 
     @staticmethod
-    def load_strategies(strategies: dict[str, dict[str, Any]]) -> dict[str, callable]:
+    def load_strategies(strategies: dict[str, dict[str, t.Any]]) -> dict[str, callable]:
         r = {}
         for strategy_path, strategy_kwargs in strategies.items():
             module_path, strategy_name = strategy_path.rsplit(".", maxsplit=1)

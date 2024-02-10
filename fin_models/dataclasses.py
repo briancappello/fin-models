@@ -49,3 +49,33 @@ class CompanyDetails:
         None  # https://polygon.io/docs/stocks/get_v3_reference_tickers_types
     )
     weighted_shares_outstanding: int | None = None
+
+
+@dataclass
+class HistoricalMetadata:
+    freq: Freq
+    first_bar_utc: datetime
+    latest_bar_utc: datetime
+    Open: float
+    High: float
+    Low: float
+    Close: float
+    Volume: float
+    timezone: str = "America/New_York"
+
+    @property
+    def first_bar_dt(self) -> datetime:
+        return self.first_bar_utc.astimezone(ZoneInfo(self.timezone))
+
+    @property
+    def latest_bar_dt(self) -> datetime:
+        return self.latest_bar_utc.astimezone(ZoneInfo(self.timezone))
+
+    @property
+    def latest_bar(self) -> pd.Series:
+        index = ["Open", "High", "Low", "Close", "Volume"]
+        return pd.Series(
+            data=[getattr(self, col) for col in index],
+            index=index,
+            name=pd.Timestamp(self.latest_bar_dt),
+        )

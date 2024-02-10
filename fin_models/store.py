@@ -1,101 +1,180 @@
-import json
+from __future__ import annotations
+
 import os
 
-from dataclasses import asdict, dataclass
-from datetime import date
-from typing import List, Optional
+from datetime import datetime
 
 import pandas as pd
 
 from fin_models.config import Config
+from fin_models.dataclasses import CompanyDetails, HistoricalMetadata
+from fin_models.enums import Freq
+from fin_models.serializers import (
+    CompanyDetailsSerializer,
+    HistoricalMetadataSerializer,
+)
 
 
 RESAMPLE_COLUMNS = {
-                    "Open": "first",
-                    "High": "max",
-                    "Low": "min",
-                    "Close": "last",
-                    "Volume": "sum",
-                }
-
-
-@dataclass
-class Metadata:
-    latest: Optional[date] = None
+    "Open": "first",
+    "High": "max",
+    "Low": "min",
+    "Close": "last",
+    "Volume": "sum",
+}
 
 
 class Store:
-    def __init__(self, root_dir=None, timeframe: str = "day"):
-        self.root_dir = os.path.join(root_dir or Config.DATA_DIR, timeframe)
-        self.timeframe = timeframe
-        os.makedirs(self.root_dir, exist_ok=True)
-        self._metadata_path = os.path.join(self.root_dir, ".metadata.json")
+    # FIXME: take parametrized data vendor and trading calendar
+    def __init__(self):
+        self._root_dir = os.path.join(Config.DATA_DIR, "symbol-data")
+        os.makedirs(self._root_dir, exist_ok=True)
 
-    def symbols(self) -> List[str]:
-        ext_len = len(".pickle")
+    def symbols(self, freq: Freq | None = None) -> list[str]:
+        """
+        Get a list of all ticker symbols in the store.
+        """
         return [
-            filename[:-ext_len]
-            for filename in os.listdir(self.root_dir)
-            if filename.endswith(".pickle")
+            dir_entry.name
+            for dir_entry in os.scandir(self._root_dir)
+            if dir_entry.is_dir()
+            and not dir_entry.name.startswith(".")
+            and (self._has_freq(dir_entry.name, freq) if freq is not None else True)
         ]
 
-    def has(self, symbol: str) -> bool:
-        return os.path.exists(self._path(symbol))
+    def has(self, symbol: str, freq: Freq = Freq.day) -> bool:
+        """
+        Returns true if the store has data for the given symbol and frequency.
+        """
+        return bool(self._get_source_freq(symbol, freq))
 
-    def get(self, symbol: str) -> Optional[pd.DataFrame]:
-        if not self.has(symbol):
+    def _has_freq(self, symbol: str, freq: Freq) -> bool:
+        """
+        Returns true if we have data for the given symbol and exact frequency.
+        """
+        return os.path.exists(self._path(symbol, freq))
+
+    def get(self, symbol: str, freq: Freq = Freq.day) -> pd.DataFrame | None:
+        """
+        Return all historical data for the given symbol at the requested frequency.
+        """
+        source_freq = self._get_source_freq(symbol, freq)
+        if not source_freq:
             return None
-        return pd.read_pickle(self._path(symbol))
 
-    def agg(self, df: pd.DataFrame, to_timeframe):
-        if self.timeframe == "minute":
-            # df.resample('5Min').apply(RESAMPLE_COLUMNS).ffill()
-            raise NotImplementedError
-        elif self.timeframe == "day":
-            if to_timeframe in {"D", "1D"}:
-                return df
-            elif to_timeframe in {"W", "1W"}:
-                new = df.resample("W").apply(RESAMPLE_COLUMNS)
-                new.index = new.index - pd.Timedelta(days=6)
-                return new
-            elif to_timeframe in {"M", "1M"}:
-                return df.resample("MS").apply(RESAMPLE_COLUMNS)
-        raise NotImplementedError
+        df = pd.read_pickle(self._path(symbol, source_freq))
+        if source_freq == freq:
+            return df
+        return self._agg(df, freq)
 
-    def write(self, symbol: str, df: pd.DataFrame) -> None:
-        df.to_pickle(self._path(symbol))
+    def get_latest_dt(self, symbol: str, freq: Freq) -> datetime | None:
+        data = self.get_historical_metadata(symbol, freq)
+        if not data:
+            return None
+        return data.latest_bar_dt
 
-    def append(self, symbol: str, bars: pd.DataFrame) -> pd.DataFrame:
-        df = self.get(symbol)
+    def write(self, symbol: str, freq: Freq, df: pd.DataFrame) -> None:
+        self._write_historical_metadata(symbol, freq, df)
+        df.to_pickle(self._path(symbol, freq))
+
+    def get_company_details(self, symbol: str) -> CompanyDetails | None:
+        filepath = self._company_details_path(symbol)
+        if not os.path.exists(filepath):
+            return None
+
+        with open(filepath) as f:
+            return CompanyDetailsSerializer().loads(f.read())
+
+    def _write_company_details(self, symbol: str, data: CompanyDetails) -> None:
+        with open(self._company_details_path(symbol), "w") as f:
+            f.write(CompanyDetailsSerializer().dumps(data))
+
+    def get_historical_metadata(
+        self, symbol: str, freq: Freq
+    ) -> HistoricalMetadata | None:
+        filepath = self._historical_metadata_path(symbol, freq)
+        if not os.path.exists(filepath):
+            return None
+
+        with open(filepath) as f:
+            return HistoricalMetadataSerializer().loads(f.read())
+
+    def _write_historical_metadata(
+        self, symbol: str, freq: Freq, df: pd.DataFrame
+    ) -> None:
+        if df is None or df.empty:
+            return
+
+        bar = df.iloc[-1]
+        data = HistoricalMetadata(
+            freq=freq,
+            first_bar_utc=df.iloc[0].name,
+            latest_bar_utc=bar.name,
+            Open=bar.Open,
+            High=bar.High,
+            Low=bar.Low,
+            Close=bar.Close,
+            Volume=bar.Volume,
+        )
+        with open(self._historical_metadata_path(symbol, freq), "w") as f:
+            f.write(HistoricalMetadataSerializer().dumps(data))
+
+    def append(self, symbol: str, freq: Freq, bars: pd.DataFrame) -> pd.DataFrame:
+        if not self._has_freq(symbol, freq):
+            raise NotImplementedError(
+                f"{freq} does not exist on-disk for {symbol}, cannot append"
+            )
+
+        df = self.get(symbol, freq)
         try:
+            # slice off overlapping timestamps (prefer new values over existing)
             df = df.iloc[: df.index.get_loc(bars.iloc[0].name)]
         except KeyError:
             pass
-        new = pd.concat([df, bars])
-        self.write(symbol, new)
-        return new
 
-    def __getitem__(self, symbol):
-        if not self.has(symbol):
-            raise KeyError
-        return self.get(symbol)
+        new_df = pd.concat([df, bars])
+        self.write(symbol, freq, new_df)
+        return new_df
 
-    def __setitem__(self, symbol, value):
-        self.write(symbol, value)
+    def _agg(self, df: pd.DataFrame, to_freq: Freq) -> pd.DataFrame:
+        resample_freq = {Freq.month: "MS", Freq.year: "YS"}.get(to_freq, to_freq.value)
+        agg_df = df.resample(resample_freq).apply(RESAMPLE_COLUMNS).ffill()
+        if to_freq == Freq.week:
+            agg_df.index = agg_df.index - pd.Timedelta(days=6)
+        return agg_df
 
-    @property
-    def metadata(self) -> Metadata:
-        return Metadata(**self._read_metadata())
+    def _get_source_freq(self, symbol: str, freq: Freq) -> Freq | None:
+        for source_freq in [x for x in reversed(Freq) if x <= freq]:
+            if self._has_freq(symbol, source_freq):
+                return source_freq
+        return None
 
-    def _read_metadata(self) -> dict:
-        if not os.path.exists(self._metadata_path):
-            return {}
-        with open(self._metadata_path) as f:
-            return json.load(f)
+    def _path(self, symbol: str, freq: Freq) -> str:
+        filepath = os.path.join(
+            self._root_dir,
+            symbol.upper(),
+            f"{self._freq_filename(freq)}.pickle",
+        )
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        return filepath
 
-    def _write_metadata(self, metadata: Metadata) -> None:
-        with open(self._metadata_path, "w") as f:
-            json.dump(asdict(metadata), f, indent=2)
+    def _company_details_path(self, symbol: str):
+        filepath = os.path.join(
+            self._root_dir,
+            symbol.upper(),
+            "company-details.json",
+        )
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        return filepath
 
-    def _path(self, symbol: str) -> str:
-        return f"{self.root_dir}/{symbol.upper()}.pickle"
+    def _historical_metadata_path(self, symbol: str, freq: Freq):
+        filepath = os.path.join(
+            self._root_dir,
+            symbol.upper(),
+            f"{self._freq_filename(freq)}.json",
+        )
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        return filepath
+
+    def _freq_filename(self, freq: Freq) -> str:
+        return freq.value if freq < Freq.day else freq.name
