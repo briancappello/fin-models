@@ -1,5 +1,3 @@
-from typing import *
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -43,7 +41,7 @@ def days_with_above_avg_volume(
     return vol_ma_df[s[s].index]
 
 
-def days_since_previous_high(df: pd.DataFrame) -> int:
+def bars_since_previous_high(df: pd.DataFrame) -> int:
     """
     Count the number of days since the price was higher than the current close.
 
@@ -52,6 +50,7 @@ def days_since_previous_high(df: pd.DataFrame) -> int:
     1 == Yesterday was higher
     50 == 50 days ago was the most recent bar higher than the latest bar
     """
+
     bar = df.iloc[-1]
     priors = df.iloc[:-1]
 
@@ -165,7 +164,8 @@ def crossed_ma(df: pd.DataFrame, ma: int = 200, within_bars: int = 1):
 
     sma = ta.SMA(df.Close, timeperiod=ma)
     for i in range(1, within_bars + 1):
-        if df.Open.iloc[-i] < sma < df.Close.iloc[-1]:
+        # include gaps
+        if df.Close.iloc[-(i + 1)] < sma.iloc[-i] < df.Close.iloc[-i]:
             return True
     return False
 

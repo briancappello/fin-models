@@ -14,9 +14,9 @@ def is_crossed(
     Returns true if there was an overnight or intraday cross of the given value
     """
     if column is None and value is None:
-        raise TypeError('One of `column` or `value` is required to be passed.')
+        raise TypeError("One of `column` or `value` is required to be passed.")
     elif column and column not in df.columns:
-        raise ValueError(f'The column {column!r} is missing from `df`.')
+        raise ValueError(f"The column {column!r} is missing from `df`.")
 
     value = df[column].iloc[-1] if column else value
     intraday_cross = df.iloc[-1].Open < value < df.iloc[-1].Close

@@ -3,14 +3,16 @@ from __future__ import annotations
 import asyncio
 import json
 
-from typing import List, Tuple, Union
-
 import aiohttp
 
 
 class AsyncResponse:
     def __init__(
-        self, url: str, content: bytes, content_type: str, http_status_code: int
+        self,
+        url: str,
+        content: bytes,
+        content_type: str,
+        http_status_code: int,
     ):
         self.url: str = url
         self.content: bytes = content
@@ -52,7 +54,7 @@ class AsyncException:
 async def dl(
     session: aiohttp.ClientSession,
     url: str,
-) -> Union[AsyncResponse, AsyncException]:
+) -> AsyncResponse | AsyncException:
     try:
         async with session.get(url) as r:
             content = await r.read()
@@ -63,9 +65,9 @@ async def dl(
 
 
 async def dl_all(
-    all_urls: List[str],
+    all_urls: list[str],
     batch_size: int = 20,
-) -> Tuple[List[AsyncResponse], List[AsyncResponse], List[AsyncException]]:
+) -> tuple[list[AsyncResponse], list[AsyncResponse], list[AsyncException]]:
     successes = []
     errors = []
     exceptions = []
@@ -81,6 +83,6 @@ async def dl_all(
 
 def bulk_download(
     urls: list[str],
-) -> Tuple[List[AsyncResponse], List[AsyncResponse], List[AsyncException]]:
+) -> tuple[list[AsyncResponse], list[AsyncResponse], list[AsyncException]]:
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(dl_all(urls))

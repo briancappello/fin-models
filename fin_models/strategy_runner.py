@@ -1,22 +1,23 @@
+from __future__ import annotations
+
 import functools
 import importlib
-
-from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
 from .calendar import Calendar
+from .date_utils import DateType
 from .store import Store
 
 
 class StrategyRunner:
     def __init__(
         self,
-        strategies: Dict[str, Dict[str, Any]],
-        store: Optional[Store] = None,
-        calendar: Optional[Union[Calendar, str]] = "NYSE",
-        results_path: Optional[str] = None,
-        symbols: Optional[List[str]] = None,
+        strategies: dict[str, dict],
+        store: Store | None = None,
+        calendar: Calendar | str = "NYSE",
+        results_path: str | None = None,
+        symbols: list[str] | None = None,
     ):
         self.store = store or Store()
         self.calendar = (
@@ -27,7 +28,7 @@ class StrategyRunner:
         self.strategies = self.load_strategies(strategies)
 
     @staticmethod
-    def load_strategies(strategies: Dict[str, Dict[str, Any]]) -> Dict[str, callable]:
+    def load_strategies(strategies: dict[str, dict[str, Any]]) -> dict[str, callable]:
         r = {}
         for strategy_path, strategy_kwargs in strategies.items():
             module_path, strategy_name = strategy_path.rsplit(".", maxsplit=1)
@@ -49,14 +50,14 @@ class StrategyRunner:
 
     def run(
         self,
-        symbols: Optional[List[str]] = None,
-        date: Optional = None,
-    ) -> Tuple[pd.DataFrame, List[Tuple]]:
+        symbols: list[str] | None = None,
+        date: DateType | None = None,
+    ) -> tuple[pd.DataFrame, list[tuple[str, str]]]:
         symbols = symbols or self.symbols or self.store.symbols()
         date = (
             date or self.calendar.get_latest_trading_date_schedule().market_close
         ).isoformat()[:10]
-        results = pd.DataFrame(index=symbols, columns=self.strategies.keys())
+        results = pd.DataFrame(index=symbols, columns=list(self.strategies.keys()))
         errors = []
         data = {symbol: self.store.get(symbol) for symbol in symbols}
         for symbol, df in data.items():

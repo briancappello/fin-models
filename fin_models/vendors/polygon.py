@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 
 from datetime import date, timedelta
-from typing import Dict
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -70,7 +69,7 @@ def daily_bars(
     date_: DateType | str | None = None,
     adjusted: bool = True,
     include_otc: bool = False,
-) -> Dict[str, pd.DataFrame]:
+) -> dict[str, pd.DataFrame]:
     """
     Return OHLCV bars for all active symbols on the given date
     """

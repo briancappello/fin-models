@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import functools
 
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Optional, Tuple
 from urllib.parse import urlencode
 
 import numpy as np
@@ -63,7 +64,7 @@ class CookieCrumbCache:
     def __init__(
         self,
         url: str = "https://finance.yahoo.com/chart/INTC",
-        max_age: Optional[timedelta] = timedelta(hours=6),
+        max_age: timedelta | None = timedelta(hours=6),
     ):
         self._url = url
         self._max_age = max_age
@@ -111,10 +112,10 @@ cookie_crumb_cache = CookieCrumbCache()
 
 def get_yfi_url_and_cookies(
     ticker: str,
-    start: Optional[datetime] = None,
-    end: Optional[datetime] = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
     timeframe: str = "1d",
-) -> Tuple[str, RequestsCookieJar]:
+) -> tuple[str, RequestsCookieJar]:
     start, end = sanitize_dates(start, end, timeframe)
     q = {
         "symbol": ticker,
@@ -132,7 +133,7 @@ def get_yfi_url_and_cookies(
     return BASE_URL.format(ticker=ticker, query=urlencode(q)), cookie_crumb_cache.cookies
 
 
-def yfi_json_to_df(json, timeframe="1d") -> pd.DataFrame:
+def yfi_json_to_df(json, timeframe="1d") -> pd.DataFrame | None:
     result = json["chart"]
     if result["error"]:
         print(result["error"])
@@ -167,7 +168,7 @@ def yfi_json_to_df(json, timeframe="1d") -> pd.DataFrame:
         return None
 
 
-def get_df(ticker, start=None, end=None, timeframe="1d") -> pd.DataFrame:
+def get_df(ticker, start=None, end=None, timeframe="1d") -> pd.DataFrame | None:
     url, cookies = get_yfi_url_and_cookies(ticker, start, end, timeframe)
     r = requests.get(
         url,
@@ -192,15 +193,13 @@ def get_most_actives(
     min_intraday_price: float = 1.0,
     num_results: int = 100,
 ) -> pd.DataFrame:
-    url = "https://query1.finance.yahoo.com/v1/finance/screener?" + urlencode(
-        {
-            "lang": "en-US",
-            "region": region.upper(),
-            "formatted": "true",
-            "corsDomain": "finance.yahoo.com",
-            "crumb": cookie_crumb_cache.crumb,
-        }
-    )
+    url = "https://query1.finance.yahoo.com/v1/finance/screener?" + urlencode({
+        "lang": "en-US",
+        "region": region.upper(),
+        "formatted": "true",
+        "corsDomain": "finance.yahoo.com",
+        "crumb": cookie_crumb_cache.crumb,
+    })
 
     r = requests.post(
         url,

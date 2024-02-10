@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import List, Optional, Union
+from datetime import date
 
 import pandas as pd
 import pandas_market_calendars as mcal
@@ -20,7 +19,7 @@ class Calendar:
     def schedule(
         self,
         start: DateType | str,
-        end: Optional[DateType | str] = None,
+        end: DateType | str | None = None,
         include_extended: bool = False,
     ):
         return self.calendar.schedule(
@@ -64,8 +63,8 @@ class Calendar:
     def get_valid_dates(
         self,
         start: DateType | str,
-        end: Optional[DateType | str] = None,
-    ) -> List[date]:
+        end: DateType | str | None = None,
+    ) -> list[date]:
         """
         Returns a list of dates the market was open between start and end (inclusive).
         """
@@ -76,7 +75,7 @@ class Calendar:
 
     def is_market_open(
         self,
-        at_ts: Optional[DateType | str] = None,
+        at_ts: DateType | str | None = None,
         include_extended: bool = False,
     ) -> bool:
         """
