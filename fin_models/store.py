@@ -63,7 +63,7 @@ class Store:
             return None
 
         df = pd.read_pickle(self._path(symbol, source_freq))
-        if source_freq == freq:
+        if source_freq == freq or df.empty:
             return df
         return self._agg(df, freq)
 
@@ -137,6 +137,9 @@ class Store:
         return new_df
 
     def _agg(self, df: pd.DataFrame, to_freq: Freq) -> pd.DataFrame:
+        if df.empty:
+            return df
+
         resample_freq = {Freq.month: "MS", Freq.year: "YS"}.get(to_freq, to_freq.value)
         agg_df = df.resample(resample_freq).apply(RESAMPLE_COLUMNS).ffill()
         if to_freq == Freq.week:
