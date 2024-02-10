@@ -8,6 +8,7 @@ import click
 import pandas as pd
 
 from fin_models.calendar import Calendar
+from fin_models.enums import Freq
 from fin_models.store import Store
 from fin_models.vendors import polygon, yahoo
 
@@ -94,7 +95,7 @@ def init(symbols=None):
             if df is None:
                 return symbol, "Invalid Data"
             click.echo(f"Writing {symbol}")
-            store.write(symbol, df)
+            store.write(symbol, Freq.day, df)
 
     async def dl_all(symbols):
         errors = []
@@ -158,7 +159,7 @@ def update(ctx):
 
     for symbol, bars in bars_by_symbol.items():
         if store.has(symbol):
-            store.append(symbol, bars)
+            store.append(symbol, Freq.day, bars)
 
 
 # all you really care about is the tickers

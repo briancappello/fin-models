@@ -1,5 +1,5 @@
 from .. import db
-from ..enums import Frequency
+from ..enums import Freq
 from ..utils import utcnow
 
 
@@ -38,22 +38,22 @@ class AssetDataVendor(db.Model):
     def ticker(self, ticker):
         self._ticker = ticker
 
-    def last_updated(self, frequency: Frequency):
-        if frequency == Frequency.Monthly:
+    def last_updated(self, frequency: Freq):
+        if frequency == Freq.month:
             return self.monthly_last_updated
-        elif frequency == Frequency.Weekly:
+        elif frequency == Freq.week:
             return self.weekly_last_updated
-        elif frequency == Frequency.Daily:
+        elif frequency == Freq.day:
             return self.daily_last_updated
         return self.minutely_last_updated
 
-    def set_last_updated(self, frequency: Frequency, time=None):
+    def set_last_updated(self, frequency: Freq, time=None):
         time = time or utcnow()
-        if frequency == Frequency.Monthly:
+        if frequency == Freq.month:
             self.monthly_last_updated = time
-        elif frequency == Frequency.Weekly:
+        elif frequency == Freq.week:
             self.weekly_last_updated = time
-        elif frequency == Frequency.Daily:
+        elif frequency == Freq.day:
             self.daily_last_updated = time
         else:
             self.minutely_last_updated = time

@@ -10,10 +10,19 @@ import requests
 
 from fin_models.config import Config
 from fin_models.date_utils import DateType, isodate, to_ts
+from fin_models.enums import Freq
 
 
 HOST = "https://api.polygon.io"
-VALID_TIMEFRAMES = ["minute", "hour", "day", "week", "month", "quarter", "year"]
+VALID_TIMEFRAMES = {
+    Freq.min_1: "minute",
+    Freq.hour: "hour",
+    Freq.day: "day",
+    Freq.week: "week",
+    Freq.month: "month",
+    Freq.quarter: "quarter",
+    Freq.year: "year",
+}
 TICKER_TYPES = {
     "common": "CS",  # common stock
     "preferred": "PFD",  # preferred stock
@@ -102,21 +111,19 @@ def make_minutely_urls(
             break
         start = interval_end + pd.Timedelta(days=1)
 
-    return [make_history_url(symbol, "minute", s, e, agg) for s, e in intervals]
+    return [make_history_url(symbol, Freq.min_1, s, e, agg) for s, e in intervals]
 
 
 def make_history_url(
     symbol: str,
-    timeframe: str,
+    freq: Freq,
     start: DateType | str,
     end: DateType | str | None = None,
     agg: int = 1,
 ) -> str:
-    assert (
-        timeframe in VALID_TIMEFRAMES
-    ), f"`timeframe` must be one of {', '.join(VALID_TIMEFRAMES)}"
     s = datefmt(start)
     e = datefmt(end)
+    timeframe = VALID_TIMEFRAMES[freq]
     return make_url(
         f"/v2/aggs/ticker/{symbol.upper()}/range/{agg}/{timeframe}/{s}/{e}",
         dict(adjusted="true", sort="asc", limit=50_000),
@@ -125,7 +132,7 @@ def make_history_url(
 
 def get_df(
     symbol: str,
-    timeframe: str = "day",
+    freq: Freq = Freq.day,
     start: DateType | str | None = None,
     end: DateType | str | None = None,
     agg: int = 1,
@@ -133,13 +140,13 @@ def get_df(
     end = to_ts(end, default=date.today())
     start = to_ts(start, default=end - timedelta(days=365 * 10))
 
-    if timeframe == "minute" and (end - start) > MAX_MINUTE_DAYS:
+    if freq == Freq.min_1 and (end - start) > MAX_MINUTE_DAYS:
         dataframes = []
         for url in make_minutely_urls(symbol, start, end, agg):
             dataframes.append(json_to_df(requests.get(url).json()))
         return pd.concat(dataframes)
 
-    url = make_history_url(symbol, timeframe, start, end, agg)
+    url = make_history_url(symbol, freq, start, end, agg)
     return json_to_df(_get(url))
 
 
