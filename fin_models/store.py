@@ -144,7 +144,7 @@ class Store:
         return agg_df
 
     def _get_source_freq(self, symbol: str, freq: Freq) -> Freq | None:
-        for source_freq in [x for x in reversed(Freq) if x <= freq]:
+        for source_freq in reversed(Freq[: freq + 1]):
             if self._has_freq(symbol, source_freq):
                 return source_freq
         return None

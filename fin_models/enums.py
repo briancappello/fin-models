@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import functools
-
 from enum import Enum as BaseEnum
 from enum import EnumMeta as BaseEnumMeta
 
@@ -19,12 +17,80 @@ class EnumMeta(BaseEnumMeta):
         return super().__contains__(item)
 
 
+class OrderedEnumMeta(EnumMeta):
+    def __new__(metacls, cls, bases, classdict, *, boundary=None, _simple=False, **kwds):
+        klass = super().__new__(
+            metacls, cls, bases, classdict, boundary=boundary, _simple=_simple, **kwds
+        )
+        klass._index2member_map_ = {
+            i: member for i, member in enumerate(klass._member_map_.values())
+        }
+        klass._member2index_map_ = {
+            member: i for i, member in enumerate(klass._member_map_.values())
+        }
+        return klass
+
+    def __getitem__(self, item):
+        if not isinstance(item, slice):
+            return super().__getitem__(item)
+
+        def idx(slice_v, default):
+            if slice_v is None:
+                return default
+            elif isinstance(slice_v, int) and slice_v < 0:
+                return len(self) + slice_v
+            return self._member2index_map_.get(slice_v, slice_v)
+
+        return [
+            self._index2member_map_[i]
+            for i in range(
+                idx(item.start, 0),
+                idx(item.stop, len(self)),
+                item.step or 1,
+            )
+        ]
+
+
 class Enum(BaseEnum, metaclass=EnumMeta):
     pass
 
 
+class OrderedEnum(Enum, metaclass=OrderedEnumMeta):
+    def __add__(self, other):
+        if not isinstance(other, int):
+            raise TypeError(
+                f"Unsupported operand type for +: {type(other)!r} (int required)"
+            )
+        try:
+            return self._index2member_map_[self._member2index_map_[self] + other]
+        except KeyError:
+            raise NotImplementedError(
+                "Requested index is out-of-bounds. "
+                "(Overflow / wrap-around is not supported.)"
+            )
+
+    def __sub__(self, other):
+        if not isinstance(other, int):
+            raise TypeError(
+                f"Unsupported operand type for -: {type(other)!r} (int required)"
+            )
+        try:
+            return self._index2member_map_[self._member2index_map_[self] - other]
+        except KeyError:
+            raise NotImplementedError(
+                "Requested index is out-of-bounds. "
+                "(Overflow / wrap-around is not supported.)"
+            )
+
+    def __lt__(self, other):
+        return self._member2index_map_[self] < self._member2index_map_[other]
+
+    def __le__(self, other):
+        return self._member2index_map_[self] <= self._member2index_map_[other]
+
+
 # https://pandas.pydata.org/docs/user_guide/timeseries.html#period-aliases
-class Freq(Enum):
+class Freq(OrderedEnum):
     min_1 = "1min"
     min_5 = "5min"
     min_10 = "10min"
@@ -36,16 +102,3 @@ class Freq(Enum):
     month = "M"
     quarter = "Q"
     year = "Y"
-
-    @functools.lru_cache()
-    def __get_indexes(self, this, other):
-        order = list(self._member_map_.keys())  # type: ignore
-        return order.index(this.name), order.index(other.name)
-
-    def __lt__(self, other):
-        self_i, other_i = self.__get_indexes(self, other)
-        return self_i < other_i
-
-    def __le__(self, other):
-        self_i, other_i = self.__get_indexes(self, other)
-        return self_i <= other_i
