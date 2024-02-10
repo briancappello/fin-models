@@ -9,8 +9,10 @@ import pandas as pd
 import requests
 
 from fin_models.config import Config
+from fin_models.dataclasses import CompanyDetails
 from fin_models.date_utils import DateType, isodate, to_ts
 from fin_models.enums import Freq
+from fin_models.serializers import CompanyDetailsSerializer
 
 
 HOST = "https://api.polygon.io"
@@ -170,14 +172,13 @@ def get_exchanges(asset_class: str = "stocks") -> list[dict]:
 
 
 def normalize_ticker_types(types: list[str] | str | None = None) -> list[str]:
+    if not types:
+        return list(TICKER_TYPES.values())
+
     if isinstance(types, str):
         types = types.split(",")
 
-    return (
-        [TICKER_TYPES.get(t.lower().strip(), t.upper()) for t in types]
-        if types
-        else list(TICKER_TYPES.values())
-    )
+    return [TICKER_TYPES.get(t.lower().strip(), t.upper()) for t in types]
 
 
 def get_tickers(types: list[str] | str | None = None) -> list[dict]:
@@ -209,3 +210,47 @@ def get_tickers(types: list[str] | str | None = None) -> list[dict]:
         if not data.get("next_url"):
             break
     return tickers
+
+
+def get_company_details(
+    symbol: str, on_date: DateType | str | None = None
+) -> CompanyDetails:
+    """
+    {
+        "active": true,
+        "address": {
+            "address1": "One Apple Park Way",
+            "city": "Cupertino",
+            "postal_code": "95014",
+            "state": "CA",
+        },
+        "cik": "0000320193",
+        "composite_figi": "BBG000B9XRY4",
+        "currency_name": "usd",
+        "description": "...",
+        "homepage_url": "https://www.apple.com",
+        "list_date": "1980-12-12",
+        "locale": "us",
+        "market": "stocks",
+        "market_cap": 2771126040150,
+        "name": "Apple Inc.",
+        "phone_number": "(408) 996-1010",
+        "primary_exchange": "XNAS",
+        "round_lot": 100,
+        "share_class_figi": "BBG001S5N8V8",
+        "share_class_shares_outstanding": 16406400000,
+        "sic_code": "3571",
+        "sic_description": "ELECTRONIC COMPUTERS",
+        "ticker": "AAPL",
+        "ticker_root": "AAPL",
+        "total_employees": 154000,
+        "type": "CS",
+        "weighted_shares_outstanding": 16334371000,
+    }
+    """
+    data = _get(
+        f"/v3/reference/tickers/{symbol.upper()}",
+        query_params=dict(date=isodate(on_date)) if on_date else None,
+    )["results"]
+    data.pop("branding", None)
+    return CompanyDetailsSerializer().load(data)
