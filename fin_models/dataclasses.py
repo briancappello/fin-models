@@ -54,8 +54,8 @@ class CompanyDetails:
 @dataclass
 class HistoricalMetadata:
     freq: Freq
-    first_bar_utc: datetime
-    latest_bar_utc: datetime
+    first_bar_utc: datetime | pd.Timestamp
+    latest_bar_utc: datetime | pd.Timestamp
     Open: float
     High: float
     Low: float

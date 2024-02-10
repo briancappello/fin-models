@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import importlib
-import  typing as t
+import typing as t
 
 import pandas as pd
 

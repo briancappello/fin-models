@@ -108,8 +108,8 @@ class Store:
         bar = df.iloc[-1]
         data = HistoricalMetadata(
             freq=freq,
-            first_bar_utc=df.iloc[0].name,
-            latest_bar_utc=bar.name,
+            first_bar_utc=df.iloc[0].name,  # type: ignore
+            latest_bar_utc=bar.name,  # type: ignore
             Open=bar.Open,
             High=bar.High,
             Low=bar.Low,
