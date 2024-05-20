@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from fin_models.enums import Freq
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Address:
     address1: str
     city: str
@@ -18,7 +17,7 @@ class Address:
     address2: str | None = None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CompanyDetails:
     active: bool
     currency_name: str
@@ -51,11 +50,11 @@ class CompanyDetails:
     weighted_shares_outstanding: int | None = None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class HistoricalMetadata:
     freq: Freq
-    first_bar_utc: datetime | pd.Timestamp
-    latest_bar_utc: datetime | pd.Timestamp
+    first_bar_utc: pd.Timestamp
+    latest_bar_utc: pd.Timestamp
     Open: float
     High: float
     Low: float
@@ -64,12 +63,28 @@ class HistoricalMetadata:
     timezone: str = "America/New_York"
 
     @property
-    def first_bar_dt(self) -> datetime:
-        return self.first_bar_utc.astimezone(ZoneInfo(self.timezone))
+    def first_bar_utc(self) -> pd.Timestamp:
+        return self._first_bar_utc
+
+    @first_bar_utc.setter
+    def first_bar_utc(self, value: pd.Timestamp | datetime | str) -> None:
+        self._first_bar_utc = pd.Timestamp(value).astimezone("UTC")
 
     @property
-    def latest_bar_dt(self) -> datetime:
-        return self.latest_bar_utc.astimezone(ZoneInfo(self.timezone))
+    def first_bar_dt(self) -> pd.Timestamp:
+        return self.first_bar_utc.astimezone(self.timezone)
+
+    @property
+    def latest_bar_utc(self) -> pd.Timestamp:
+        return self._latest_bar_utc
+
+    @latest_bar_utc.setter
+    def latest_bar_utc(self, value: pd.Timestamp | datetime | str) -> None:
+        self._latest_bar_utc = pd.Timestamp(value).astimezone("UTC")
+
+    @property
+    def latest_bar_dt(self) -> pd.Timestamp:
+        return self.latest_bar_utc.astimezone(self.timezone)
 
     @property
     def latest_bar(self) -> pd.Series:
@@ -77,5 +92,21 @@ class HistoricalMetadata:
         return pd.Series(
             data=[getattr(self, col) for col in index],
             index=index,
-            name=pd.Timestamp(self.latest_bar_dt),
+            name=self.latest_bar_dt,
+        )
+
+    @property
+    def latest_bar_df(self) -> pd.DataFrame:
+        return pd.DataFrame.from_records(
+            data=[
+                dict(
+                    Epoch=self.latest_bar_dt,
+                    Open=self.Open,
+                    High=self.High,
+                    Low=self.Low,
+                    Close=self.Close,
+                    Volume=self.Volume,
+                )
+            ],
+            index="Epoch",
         )

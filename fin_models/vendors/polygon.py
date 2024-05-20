@@ -11,7 +11,7 @@ import requests
 from fin_models.config import Config
 from fin_models.dataclasses import CompanyDetails
 from fin_models.date_utils import DateType, isodate, to_ts
-from fin_models.enums import Freq
+from fin_models.enums import Enum, Freq
 from fin_models.serializers import CompanyDetailsSerializer
 
 
@@ -25,11 +25,43 @@ VALID_TIMEFRAMES = {
     Freq.quarter: "quarter",
     Freq.year: "year",
 }
-TICKER_TYPES = {
-    "common": "CS",  # common stock
-    "preferred": "PFD",  # preferred stock
-    "etf": "ETF",  # exchange traded fund
-}
+
+
+class AssetClass(Enum):
+    stocks = "Stocks"
+    options = "Options"
+    crypto = "Crypto"
+    fx = "FX"
+    indices = "Indices"
+
+
+class TickerType(Enum):
+    ADRC = "American Depository Receipt Common"
+    ADRP = "American Depository Receipt Preferred"
+    ADRR = "American Depository Receipt Rights"
+    ADRW = "American Depository Receipt Warrants"
+    AGEN = "Agency Bond"
+    BASKET = "Basket"
+    BOND = "Corporate Bond"
+    CS = "Common Stock"
+    EQLK = "Equity Linked Bond"
+    ETF = "Exchange Traded Fund"
+    ETN = "Exchange Traded Note"
+    ETS = "Single-security ETF"
+    ETV = "Exchange Traded Vehicle"
+    FUND = "Fund"
+    GDR = "Global Depository Receipts"
+    LT = "Liquidating Trust"
+    NYRS = "New York Registry Shares"
+    OS = "Ordinary Shares"
+    OTHER = "Other Security Type"
+    PFD = "Preferred Stock"
+    RIGHT = "Rights"
+    SP = "Structured Product"
+    UNIT = "Unit"
+    WARRANT = "Warrant"
+
+
 HISTORY_URL_REGEX = re.compile(
     r".*/v2/aggs/ticker/(?P<symbol>.+)/range/1/(?P<timeframe>.+)/(?P<start>.+)/(?P<end>.+?)/?\?.+"
 )
@@ -67,6 +99,7 @@ def _to_bar(d: dict) -> dict:
         Low=d["l"],
         Close=d["c"],
         Volume=int(d["v"]),
+        VWAP=d["vw"],
     )
 
 
@@ -76,7 +109,7 @@ def json_to_df(data: dict) -> pd.DataFrame:
     return pd.DataFrame.from_records([_to_bar(d) for d in data["results"]], index="Epoch")
 
 
-def daily_bars(
+def get_daily_bars_for_date(
     date_: DateType | str | None = None,
     adjusted: bool = True,
     include_otc: bool = False,
@@ -145,7 +178,7 @@ def get_df(
     if freq == Freq.min_1 and (end - start) > MAX_MINUTE_DAYS:
         dataframes = []
         for url in make_minutely_urls(symbol, start, end, agg):
-            dataframes.append(json_to_df(requests.get(url).json()))
+            dataframes.append(json_to_df(_get(url)))
         return pd.concat(dataframes)
 
     url = make_history_url(symbol, freq, start, end, agg)
@@ -171,14 +204,24 @@ def get_exchanges(asset_class: str = "stocks") -> list[dict]:
     return data["results"]
 
 
-def normalize_ticker_types(types: list[str] | str | None = None) -> list[str]:
+def normalize_ticker_types(
+    types: list[TickerType] | list[str] | TickerType | str | None = None,
+) -> list[str]:
     if not types:
-        return list(TICKER_TYPES.values())
+        return [t.name for t in (TickerType.CS, TickerType.PFD, TickerType.ETF)]
+    elif isinstance(types, TickerType):
+        return [types.name]
+    elif isinstance(types, str):
+        aliases = {
+            "common": "CS",  # common stock
+            "preferred": "PFD",  # preferred stock
+            "etf": "ETF",  # exchange traded fund
+        }
+        types = [
+            aliases.get(t.strip().lower(), t.strip().upper()) for t in types.split(",")
+        ]
 
-    if isinstance(types, str):
-        types = types.split(",")
-
-    return [TICKER_TYPES.get(t.lower().strip(), t.upper()) for t in types]
+    return [TickerType[t].name for t in types]
 
 
 def get_tickers(types: list[str] | str | None = None) -> list[dict]:

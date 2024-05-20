@@ -16,23 +16,21 @@ class BaseSerializer(Schema):
         return self.__model__(**data)
 
 
-class DateTimeUTC(fields.AwareDateTime):
+class TimestampUTC(fields.AwareDateTime):
     def __init__(self):
         super().__init__(default_timezone=timezone.utc)
 
-    def _deserialize(self, value, attr, data, **kwargs) -> datetime:
-        if isinstance(value, pd.Timestamp):
-            return value.to_pydatetime().astimezone(timezone.utc)
-        elif isinstance(value, datetime):
-            return value.astimezone(timezone.utc)
-        return super()._deserialize(value, attr, data, **kwargs)
+    def _deserialize(self, value, attr, data, **kwargs) -> pd.Timestamp:
+        if not isinstance(value, (datetime, pd.Timestamp)):
+            value = super()._deserialize(value, attr, data, **kwargs)
+        return pd.Timestamp(value).astimezone("UTC")
 
 
 class AddressSerializer(BaseSerializer):
     __model__ = Address
 
     address1 = fields.String()
-    address2 = fields.String(allow_none=True)
+    address2 = fields.String(required=False, allow_none=True)
     city = fields.String()
     state = fields.String()
     postal_code = fields.String()
@@ -74,8 +72,8 @@ class HistoricalMetadataSerializer(BaseSerializer):
     __model__ = HistoricalMetadata
 
     freq = fields.Enum(Freq, by_value=True)
-    first_bar_utc = DateTimeUTC()
-    latest_bar_utc = DateTimeUTC()
+    first_bar_utc = TimestampUTC()
+    latest_bar_utc = TimestampUTC()
     timezone = fields.String(load_default="America/New_York")
 
     Open = fields.Float()

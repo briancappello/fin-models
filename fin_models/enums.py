@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 from enum import Enum as BaseEnum
 from enum import EnumMeta as BaseEnumMeta
 
@@ -18,10 +20,11 @@ class EnumMeta(BaseEnumMeta):
 
 
 class OrderedEnumMeta(EnumMeta):
-    def __new__(metacls, cls, bases, classdict, *, boundary=None, _simple=False, **kwds):
-        klass = super().__new__(
-            metacls, cls, bases, classdict, boundary=boundary, _simple=_simple, **kwds
-        )
+    def __new__(metacls, cls, bases, classdict, **kwds):
+        if kwds.get("_simple"):
+            return super().__new__(metacls, cls, bases, classdict, **kwds)
+
+        klass = super().__new__(metacls, cls, bases, classdict, **kwds)
         klass._index2member_map_ = {
             i: member for i, member in enumerate(klass._member_map_.values())
         }
@@ -31,15 +34,17 @@ class OrderedEnumMeta(EnumMeta):
         return klass
 
     def __getitem__(self, item):
-        if not isinstance(item, slice):
+        if isinstance(item, int):
+            return self._index2member_map_[item if item >= 0 else (len(self) + item)]
+        elif not isinstance(item, slice):
             return super().__getitem__(item)
 
-        def idx(slice_v, default):
-            if slice_v is None:
+        def idx(slice_n, default):
+            if slice_n is None:
                 return default
-            elif isinstance(slice_v, int) and slice_v < 0:
-                return len(self) + slice_v
-            return self._member2index_map_.get(slice_v, slice_v)
+            elif isinstance(slice_n, int) and slice_n < 0:
+                return len(self) + slice_n
+            return self._member2index_map_.get(slice_n, slice_n)
 
         return [
             self._index2member_map_[i]

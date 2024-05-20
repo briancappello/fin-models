@@ -64,7 +64,7 @@ def init(symbols=None):
     if symbols is not None:
         symbols = symbols.split(",")
     else:
-        latest_bars = polygon.daily_bars()
+        latest_bars = polygon.get_daily_bars_for_date()
         symbols = [symbol for symbol in latest_bars.keys() if not store.has(symbol)]
 
     async def dl(session, symbol):
@@ -151,7 +151,7 @@ def update(ctx):
     bars_by_symbol = {}
     for day in dates_needed:
         print(f"fetching {day}")
-        for symbol, bar in polygon.daily_bars(day).items():
+        for symbol, bar in polygon.get_daily_bars_for_date(day).items():
             if symbol in bars_by_symbol:
                 bars_by_symbol[symbol] = pd.concat([bars_by_symbol[symbol], bar])
             else:
