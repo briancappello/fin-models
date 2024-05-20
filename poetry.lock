@@ -2348,22 +2348,17 @@ files = [
 typing-extensions = ">=3.7.4"
 
 [[package]]
-name = "TA-Lib"
+name = "ta-lib"
 version = "0.4.29"
 description = "Python wrapper for TA-Lib"
 optional = false
 python-versions = "*"
-files = []
-develop = false
+files = [
+    {file = "TA-Lib-0.4.29.tar.gz", hash = "sha256:51d08a6cc5fcc690e0d8374c77073c1556511c17e9efba9106ce0de25b423f81"},
+]
 
 [package.dependencies]
 numpy = "*"
-
-[package.source]
-type = "git"
-url = "git@github.com:TA-Lib/ta-lib-python.git"
-reference = "HEAD"
-resolved_reference = "e829cdaca3cbdfd91854a4f4716bffcdc22d756a"
 
 [[package]]
 name = "tomli"
@@ -2593,4 +2588,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "767684f361ad8144d488cf5d7c42e2c0d3b3246f88e108112d46b8d07d8f6bb7"
+content-hash = "f2e7ffd0491dfe32b60188dd22b368359d8cecfc6572a91d01f3c0f78dee4912"

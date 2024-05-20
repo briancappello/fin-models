@@ -8,6 +8,10 @@ license = "MIT"
 readme = "README.md"
 packages = [{include = "fin_models"}]
 
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
 [tool.poetry.scripts]
 fin = "fin_models.cli:main"
 
@@ -22,7 +26,7 @@ requests = "^2"
 sqlalchemy = "<2"
 sqlalchemy-unchained = "^0.14.0"
 joblib = "^1.3.0"
-ta-lib = { git = "git@github.com:TA-Lib/ta-lib-python.git" }
+ta-lib = "^0.4.29"
 scipy = "^1.10.0"
 matplotlib = "^3.7.1"
 alembic = "^1.11.1"
