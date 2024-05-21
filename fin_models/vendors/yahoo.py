@@ -193,13 +193,15 @@ def get_most_actives(
     min_intraday_price: float = 1.0,
     num_results: int = 100,
 ) -> pd.DataFrame:
-    url = "https://query1.finance.yahoo.com/v1/finance/screener?" + urlencode({
-        "lang": "en-US",
-        "region": region.upper(),
-        "formatted": "true",
-        "corsDomain": "finance.yahoo.com",
-        "crumb": cookie_crumb_cache.crumb,
-    })
+    url = "https://query1.finance.yahoo.com/v1/finance/screener?" + urlencode(
+        {
+            "lang": "en-US",
+            "region": region.upper(),
+            "formatted": "true",
+            "corsDomain": "finance.yahoo.com",
+            "crumb": cookie_crumb_cache.crumb,
+        }
+    )
 
     r = requests.post(
         url,

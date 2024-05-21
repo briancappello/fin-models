@@ -90,13 +90,17 @@ class Store:
         Get a list of all ticker symbols in the store.
         """
         return list(
-            sorted({
-                dir_entry.name
-                for dir_entry in os.scandir(self._root_dir)
-                if dir_entry.is_dir()
-                and not dir_entry.name.startswith(".")
-                and (self.has_freq(dir_entry.name, freq) if freq is not None else True)
-            })
+            sorted(
+                {
+                    dir_entry.name
+                    for dir_entry in os.scandir(self._root_dir)
+                    if dir_entry.is_dir()
+                    and not dir_entry.name.startswith(".")
+                    and (
+                        self.has_freq(dir_entry.name, freq) if freq is not None else True
+                    )
+                }
+            )
         )
 
     def append(self, symbol: str, freq: Freq, bars: pd.DataFrame) -> pd.DataFrame:

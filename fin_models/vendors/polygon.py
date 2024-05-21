@@ -99,7 +99,7 @@ def _to_bar(d: dict) -> dict:
         Low=d["l"],
         Close=d["c"],
         Volume=int(d["v"]),
-        VWAP=d["vw"],
+        VWAP=d.get("vw"),
     )
 
 
@@ -248,7 +248,11 @@ def get_tickers(types: list[str] | str | None = None) -> list[dict]:
     while True:
         data = _get(data["next_url"], dict(market="stocks", active="true", limit=1000))
         tickers.extend(
-            [d for d in data["results"] if d["type"] in types and d["ticker"].isupper()]
+            [
+                d
+                for d in data["results"]
+                if d.get("type") in types and d["ticker"].isupper()
+            ]
         )
         if not data.get("next_url"):
             break

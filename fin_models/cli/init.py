@@ -71,17 +71,13 @@ def init(symbols_: list[str], start, end, freq: Freq):
                 df = polygon.json_to_df(resp.json)
                 m = polygon.HISTORY_URL_REGEX.match(resp.url)
                 symbol = m.groupdict()["symbol"]
-                store.write(symbol, df, freq)
+                store.write(symbol, freq, df)
                 print(f"{symbol}: Added {len(df)} bars")
 
     elif freq == Freq.min_1:
         for symbol in symbols_:
             urls = polygon.make_minutely_urls(symbol, start, end)
             successes, errors, exceptions = bulk_download(urls)
-            # print(
-            #     f"successes: {len(successes)}, errors: {len(errors)}, exceptions:"
-            #     f" {len(exceptions)}"
-            # )
 
             dataframes = []
             for r in successes:
@@ -92,5 +88,5 @@ def init(symbols_: list[str], start, end, freq: Freq):
 
             if dataframes and len(dataframes) == len(successes):
                 df = pd.concat(dataframes).sort_index()
-                store.write(symbol, df, freq)
+                store.write(symbol, freq, df)
                 print(f"{symbol}: Added {len(df)} bars")
