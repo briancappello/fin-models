@@ -11,6 +11,4 @@ dist/
 docs/_build
 docs/.doctrees
 venv/
-dask/
-data/
 .idea
