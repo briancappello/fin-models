@@ -58,14 +58,12 @@ def agg():
     )
 
 
-@cli.command()
-@click.option("--symbols", type=str, default=None)
 def init(symbols=None):
-    if symbols is not None:
-        symbols = symbols.split(",")
-    else:
+    if not symbols:
         latest_bars = polygon.get_daily_bars_for_date()
         symbols = [symbol for symbol in latest_bars.keys() if not store.has(symbol)]
+    elif isinstance(symbols, str):
+        symbols = symbols.split(',')
 
     async def dl(session, symbol):
         await asyncio.sleep(random.random() * 2)

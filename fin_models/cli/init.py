@@ -8,6 +8,7 @@ import click
 import pandas as pd
 
 from fin_models.bulk_downloader import bulk_download
+from fin_models.cli_old import init as init_daily_with_yahoo
 from fin_models.date_utils import to_ts
 from fin_models.enums import Freq
 from fin_models.services import store
@@ -65,8 +66,8 @@ def init(symbols_: list[str], start, end, freq: Freq):
         urls = [
             polygon.make_history_url(symbol, Freq.day, start, end) for symbol in symbols_
         ]
-        for batch in chunk(urls, 200):
-            successes, errors, exceptions = bulk_download(batch)
+        for url_batch in chunk(urls, 200):
+            successes, errors, exceptions = bulk_download(url_batch)
             for resp in successes:
                 df = polygon.json_to_df(resp.json)
                 m = polygon.HISTORY_URL_REGEX.match(resp.url)
@@ -90,3 +91,9 @@ def init(symbols_: list[str], start, end, freq: Freq):
                 df = pd.concat(dataframes).sort_index()
                 store.write(symbol, freq, df)
                 print(f"{symbol}: Added {len(df)} bars")
+
+
+@main.command("init-daily-with-yahoo")
+@click.option('--symbols', type=str, default=None)
+def _init_daily_with_yahoo(symbols: str | None = None):
+    init_daily_with_yahoo(symbols)

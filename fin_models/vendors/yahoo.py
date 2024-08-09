@@ -149,7 +149,7 @@ def yfi_json_to_df(json, timeframe="1d") -> pd.DataFrame | None:
             index = index.normalize()
         df = pd.DataFrame(quotes, index=index)
         df.volume = df.volume.fillna(0).astype("int64")
-        df = df.fillna(method="ffill").sort_index()
+        df = df.ffill().sort_index()
         df.rename(columns=lambda name: name.title(), inplace=True)
         df = df[["Open", "High", "Low", "Close", "Volume"]]
         if not len(df) or timeframe != "1d":
