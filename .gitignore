@@ -13,3 +13,4 @@ docs/.doctrees
 venv/
 dask/
 data/
+.idea
