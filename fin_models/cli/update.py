@@ -4,7 +4,7 @@ import click
 import pandas as pd
 
 from fin_models.bulk_downloader import bulk_download
-from fin_models.cli.main import main
+from fin_models.cli.groups import main
 from fin_models.enums import Freq
 from fin_models.services import nyse, store
 from fin_models.utils import chunk

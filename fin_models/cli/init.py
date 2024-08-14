@@ -13,9 +13,9 @@ from fin_models.date_utils import to_ts
 from fin_models.enums import Freq
 from fin_models.services import store
 from fin_models.utils import chunk
-from fin_models.vendors import polygon, yahoo
+from fin_models.vendors import polygon
 
-from .main import main
+from .groups import main, yahoo
 
 
 @main.command("init")
@@ -50,6 +50,7 @@ def init_command(
     end: str | None = None,
     timeframe: str = "day",
 ):
+    """Initialize historical data from Polygon"""
     freq = {"minute": Freq.min_1, "day": Freq.day}[timeframe]
     types = polygon.normalize_ticker_types(types)
     end = to_ts(end, default=date.today())
@@ -93,7 +94,8 @@ def init(symbols_: list[str], start, end, freq: Freq):
                 print(f"{symbol}: Added {len(df)} bars")
 
 
-@main.command("init-daily-with-yahoo")
-@click.option('--symbols', type=str, default=None)
+@yahoo.command("init")
+@click.option("--symbols", type=str, default=None)
 def _init_daily_with_yahoo(symbols: str | None = None):
+    """Initialize daily historical data from Yahoo! Finance"""
     init_daily_with_yahoo(symbols)

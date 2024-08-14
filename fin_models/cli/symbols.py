@@ -8,7 +8,7 @@ import click
 from fin_models.config import Config
 from fin_models.vendors import polygon
 
-from .main import main
+from .groups import main
 
 
 FILEPATH = os.path.join(Config.DATA_DIR, "symbols.json")
