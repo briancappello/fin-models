@@ -28,15 +28,6 @@ def cli():
 
 
 @cli.command()
-@click.argument("symbol")
-@click.option("--timeframe", default="1d")
-def df(symbol, timeframe):
-    # df = yahoo.get_df(symbol, timeframe=timeframe)
-    df = store.get(symbol)
-    print(df)
-
-
-@cli.command()
 def agg():
     amd = store.get("AMD")
 
@@ -63,7 +54,7 @@ def init(symbols=None):
         latest_bars = polygon.get_daily_bars_for_date()
         symbols = [symbol for symbol in latest_bars.keys() if not store.has(symbol)]
     elif isinstance(symbols, str):
-        symbols = symbols.split(',')
+        symbols = symbols.split(",")
 
     async def dl(session, symbol):
         await asyncio.sleep(random.random() * 2)
@@ -89,7 +80,7 @@ def init(symbols=None):
         except Exception as e:
             return symbol, e
         else:
-            df = yahoo.yfi_json_to_df(data, "1d")
+            df = yahoo.yfi_json_to_df(data, Freq.day)
             if df is None:
                 return symbol, "Invalid Data"
             click.echo(f"Writing {symbol}")

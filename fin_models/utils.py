@@ -12,9 +12,9 @@ from bs4 import BeautifulSoup
 TICKER_IN_PARENTHESIS_RE = re.compile(r"(?P<company_name>.+) \((?P<ticker>[A-Z]+)\)")
 
 
-def get_soup(url) -> BeautifulSoup:
+def get_soup(url, **kwargs) -> BeautifulSoup:
     """Returns an instance of BeautifulSoup for the given URL"""
-    return BeautifulSoup(requests.get(url).content, "lxml")
+    return BeautifulSoup(requests.get(url, **kwargs).content, "lxml")
 
 
 def table_to_df(table, index_col=None, columns=None) -> pd.DataFrame:

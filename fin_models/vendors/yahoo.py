@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import json
 
 from datetime import date, datetime, time, timedelta, timezone
 from urllib.parse import urlencode
@@ -13,6 +14,7 @@ from dateutil.parser import parse as _parse_dt
 from dateutil.tz import gettz
 from requests.cookies import RequestsCookieJar
 
+from fin_models.enums import Freq
 from fin_models.utils import get_soup, kmbt_to_int, table_to_df, to_float, to_percent
 
 
@@ -31,7 +33,7 @@ parse_datetime = functools.partial(
 )
 
 
-def to_datetime(dt):
+def to_datetime(dt: date | datetime | pd.Timestamp | int | str) -> datetime:
     if isinstance(dt, int):
         return datetime.fromtimestamp(dt)
     elif isinstance(dt, pd.Timestamp):
@@ -43,17 +45,21 @@ def to_datetime(dt):
     return parse_datetime(dt)
 
 
-def to_est(dt: datetime):
+def to_est(dt: datetime) -> datetime:
     return dt.astimezone(EST)
 
 
-def sanitize_dates(start=None, end=None, timeframe="1d"):
+def sanitize_dates(
+    start: date | datetime | pd.Timestamp | int | str | None = None,
+    end: date | datetime | pd.Timestamp | int | str | None = None,
+    timeframe: Freq = Freq.day,
+):
     if end is None:
         end = date.today() + timedelta(days=1)
     end = to_datetime(end)
 
     if start is None:
-        days = 7 if timeframe == "1m" else (365 * 100 - 1)  # 100 years(ish)
+        days = 7 if timeframe == Freq.min_1 else (365 * 100 - 1)  # 100 years(ish)
         start = end - timedelta(days=days)
     start = to_datetime(start)
 
@@ -96,15 +102,15 @@ class CookieCrumbCache:
             url,
             headers={
                 "User-Agent": (
-                    "Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"
+                    "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0"
                 ),
             },
         )
-        html = str(r.content)
-        start_search = '"crumb":"'
+        html = r.content.decode("unicode-escape")
+        start_search = '"crumb": "'
         start_idx = html.find(start_search) + len(start_search)
         crumb = html[start_idx : html.find('"', start_idx)]
-        return crumb, r.cookies
+        return crumb.strip(), r.cookies
 
 
 cookie_crumb_cache = CookieCrumbCache()
@@ -114,7 +120,7 @@ def get_yfi_url_and_cookies(
     ticker: str,
     start: datetime | None = None,
     end: datetime | None = None,
-    timeframe: str = "1d",
+    timeframe: Freq = Freq.day,
 ) -> tuple[str, RequestsCookieJar]:
     start, end = sanitize_dates(start, end, timeframe)
     q = {
@@ -133,8 +139,8 @@ def get_yfi_url_and_cookies(
     return BASE_URL.format(ticker=ticker, query=urlencode(q)), cookie_crumb_cache.cookies
 
 
-def yfi_json_to_df(json, timeframe="1d") -> pd.DataFrame | None:
-    result = json["chart"]
+def yfi_json_to_df(data: dict, timeframe: Freq = Freq.day) -> pd.DataFrame | None:
+    result = data["chart"]
     if result["error"]:
         print(result["error"])
         return None
@@ -145,14 +151,15 @@ def yfi_json_to_df(json, timeframe="1d") -> pd.DataFrame | None:
         index = pd.DatetimeIndex(
             pd.to_datetime(data["timestamp"], unit="s"), name="Epoch"
         ).tz_localize("America/New_York")
-        if timeframe == "1d":
+        if timeframe == Freq.day:
             index = index.normalize()
+
         df = pd.DataFrame(quotes, index=index)
         df.volume = df.volume.fillna(0).astype("int64")
         df = df.ffill().sort_index()
         df.rename(columns=lambda name: name.title(), inplace=True)
         df = df[["Open", "High", "Low", "Close", "Volume"]]
-        if not len(df) or timeframe != "1d":
+        if not len(df) or timeframe != Freq.day:
             return df
 
         # check if 2 or more rows for the latest date
@@ -168,7 +175,15 @@ def yfi_json_to_df(json, timeframe="1d") -> pd.DataFrame | None:
         return None
 
 
-def get_df(ticker, start=None, end=None, timeframe="1d") -> pd.DataFrame | None:
+def get_df(
+    ticker: str,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    timeframe: Freq = Freq.day,
+) -> pd.DataFrame | None:
+    """
+    Fetch historical data from Yahoo! Finance.
+    """
     url, cookies = get_yfi_url_and_cookies(ticker, start, end, timeframe)
     r = requests.get(
         url,
@@ -193,13 +208,17 @@ def get_most_actives(
     min_intraday_price: float = 1.0,
     num_results: int = 100,
 ) -> pd.DataFrame:
-    url = "https://query1.finance.yahoo.com/v1/finance/screener?" + urlencode(
+    return _get_predefined_screener_results("most_actives")
+
+    # old working (now broken) code for custom screeners
+    # error message is "Unauthorized / Invalid Crumb" - but the crumb is correct. Perhaps cookies?
+    url = "https://query2.finance.yahoo.com/v1/finance/screener?" + urlencode(
         {
+            "crumb": cookie_crumb_cache.crumb,
             "lang": "en-US",
             "region": region.upper(),
             "formatted": "true",
             "corsDomain": "finance.yahoo.com",
-            "crumb": cookie_crumb_cache.crumb,
         }
     )
 
@@ -226,16 +245,32 @@ def get_most_actives(
             "userIdType": "guid",
         },
         headers={
-            "Host": "query1.finance.yahoo.com",
+            "Accept": "*/*",
+            "Connection": "keep-alive",
+            # "access-control-request-method": "POST",
+            # "access-control-request-headers ": "content-type",
+            "priority": "u=4",
+            "Host": "query2.finance.yahoo.com",
             "Origin": "https://finance.yahoo.com",
+            "Referer": "https://finance.yahoo.com/screener/predefined/most_actives/",
             "User-Agent": (
                 "Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"
             ),
+            "Content-Type": "application/json",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-site",
+            "sec-gpc": "1",
+            "te": "trailers",
         },
         cookies=cookie_crumb_cache.cookies,
     )
 
-    data = r.json()["finance"]
+    try:
+        data = r.json()["finance"]
+    except (KeyError, json.JSONDecodeError):
+        raise Exception(str(r.text))
+
     if "error" in data and data["error"]:
         raise Exception(str(data["error"]))
 
@@ -277,24 +312,24 @@ def get_trending_tickers() -> pd.DataFrame:
 
 
 def get_gainers_tickers() -> pd.DataFrame:
-    url = "https://finance.yahoo.com/gainers"
-    soup = get_soup(url)
-    table = soup.find(attrs={"id": "scr-res-table"}).find("table")
-    df = table_to_df(table, index_col="symbol")
-
-    df = (
-        df.drop(["pe_ratio__ttm", "week_range", "avg_vol____month"], axis=1)
-        .rename(columns={"%_change": "pct_change", "price__intraday": "last_price"})
-        .replace("-", np.nan)
-        .replace("N/A", np.nan)
-        .dropna()
-    )
-    return _convert_column_types(df)
+    return _get_predefined_screener_results("day_gainers")
 
 
 def get_losers_tickers() -> pd.DataFrame:
-    url = "https://finance.yahoo.com/losers"
-    soup = get_soup(url)
+    return _get_predefined_screener_results("day_losers")
+
+
+def _get_predefined_screener_results(
+    predefined_screener: str, count: int = 50
+) -> pd.DataFrame:
+    soup = get_soup(
+        url=f"https://finance.yahoo.com/screener/predefined/{predefined_screener}/?offset=0&count={count}",
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0"
+            ),
+        },
+    )
     table = soup.find(attrs={"id": "scr-res-table"}).find("table")
     df = table_to_df(table, index_col="symbol")
 
