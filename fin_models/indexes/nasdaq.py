@@ -32,6 +32,8 @@ def get_nasdaq_100_df():
             }
         )
     )
-    df["last_sale"] = df["last_sale"].apply(lambda p: float(p.strip("$")))
+    df["last_sale"] = df["last_sale"].apply(
+        lambda p: float(p.replace(",", "").strip("$"))
+    )
     df["market_cap"] = df["market_cap"].apply(lambda mc: int(mc.replace(",", "")))
     return df.set_index("ticker")
