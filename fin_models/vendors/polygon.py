@@ -72,8 +72,11 @@ MAX_MINUTE_DAYS = pd.Timedelta(days=50)
 
 
 def datefmt(dt: DateType | str | None) -> str:
+    """
+    Return a URL-formatted date/time. If `dt` is None, returns the current UTC timestamp.
+    """
     ts = to_ts(dt)
-    if ts == pd.Timestamp(ts.date()):
+    if ts == pd.Timestamp(ts.date(), tz=ts.tz):
         return isodate(ts)
     return str(int(ts.timestamp() * 1000))
 
