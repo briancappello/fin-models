@@ -44,7 +44,11 @@ class Store:
         if not source_freq:
             return None
 
-        df = pd.read_pickle(self._path(symbol, source_freq))[list(columns)]
+        df = pd.read_pickle(self._path(symbol, source_freq))
+        if df.empty:
+            return None
+
+        df = df[list(columns)]
         if source_freq == freq or df.empty:
             return df
         return self.agg(df, freq)
@@ -62,7 +66,7 @@ class Store:
     ) -> HistoricalMetadata | None:
         filepath = self._historical_metadata_path(symbol, freq)
         if not os.path.exists(filepath):
-            return self._write_historical_metadata(symbol, freq, self.get(symbol, freq))
+            return None
 
         with open(filepath) as f:
             return HistoricalMetadataSerializer().loads(f.read())
@@ -136,6 +140,8 @@ class Store:
         return agg_df
 
     def write(self, symbol: str, freq: Freq, df: pd.DataFrame) -> None:
+        if df is None or df.empty:
+            return
         self._write_historical_metadata(symbol, freq, df)
         df.to_pickle(self._path(symbol, freq))
 
