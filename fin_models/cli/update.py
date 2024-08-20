@@ -20,18 +20,9 @@ from fin_models.vendors import polygon
 )
 def update_command(timeframe: str = "day"):
     freq = {"minute": Freq.min_1, "day": Freq.day}[timeframe]
-
-    # print(nyse.get_latest_trading_date_schedule())
-    # market_close: pd.Timestamp = nyse.get_latest_trading_date_schedule()["market_close"]
-    # now = datetime.now(timezone.utc)
-    #
-    # latest_dt = store.get_historical_metadata("amd", Freq.min_1).latest_bar_utc
-    # print(latest_dt, market_close)
-    # print(latest_dt < market_close)
-    # return
+    market_close: pd.Timestamp = nyse.get_latest_trading_date_schedule()["market_close"]
 
     symbols = store.symbols(freq)
-
     count = 0
 
     if freq == Freq.day:
@@ -41,8 +32,10 @@ def update_command(timeframe: str = "day"):
                     symbol,
                     freq,
                     start=store.get_historical_metadata(symbol, freq).latest_bar_utc,
+                    end=market_close,
                 )
                 for symbol in batch
+                if store.get_historical_metadata(symbol, freq)
             ]
             successes, errors, exceptions = bulk_download(urls)
             for resp in successes:
