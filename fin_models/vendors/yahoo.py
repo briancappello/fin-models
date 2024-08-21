@@ -19,7 +19,18 @@ from fin_models.utils import get_soup, kmbt_to_int, table_to_df, to_float, to_pe
 
 
 BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?{query}"
-
+VALID_TIMEFRAMES = {
+    Freq.min_1: '1m',
+    Freq.min_5: '5m',
+    Freq.min_10: '10m',
+    Freq.min_15: '15m',
+    Freq.min_30: '30m',
+    Freq.hour: '1h',  # or 60m; are they different somehow?
+    Freq.day: '1d',
+    Freq.week: '1wk',  # or 5d; are they different somehow?
+    Freq.month: '1mo',
+    Freq.quarter: '3mo',
+}
 EST = gettz("America/New_York")
 BST = gettz("Europe/London")
 CEST = gettz("Europe/Berlin")
@@ -122,12 +133,16 @@ def get_yfi_url_and_cookies(
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> tuple[str, RequestsCookieJar]:
+    if timeframe not in VALID_TIMEFRAMES:
+        raise NotImplementedError(f'Yahoo does not support timeframe={timeframe}. '
+                                  f'Must be one of {list(VALID_TIMEFRAMES.keys())}.')
+
     start, end = sanitize_dates(start, end, timeframe)
     q = {
         "symbol": ticker,
         "period1": int(start.timestamp()),
         "period2": int(end.timestamp()),
-        "interval": timeframe,
+        "interval": VALID_TIMEFRAMES[timeframe],
         "useYfid": "true",
         "includePrePost": "false",
         "events": "div|split|earn",
