@@ -165,7 +165,7 @@ def yfi_json_to_df(data: dict, timeframe: Freq = Freq.day) -> pd.DataFrame | Non
         quotes = data["indicators"]["quote"][0]
         index = pd.DatetimeIndex(
             pd.to_datetime(data["timestamp"], unit="s"), name="Epoch"
-        ).tz_localize("America/New_York")
+        ).tz_localize('UTC').tz_convert("America/New_York")
         if timeframe == Freq.day:
             index = index.normalize()
 
