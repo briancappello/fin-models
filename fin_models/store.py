@@ -117,14 +117,23 @@ class Store:
                 f"{freq} does not exist on-disk for {symbol}, cannot append"
             )
 
-        df = self.get(symbol, freq)
-        try:
-            # slice off overlapping timestamps (prefer new values over existing)
-            df = df.iloc[: df.index.get_loc(bars.iloc[0].name)]
-        except KeyError:
-            pass
+        old = self.get(symbol, freq)
+        index_intersection = old.index.intersection(bars.index, sort=True)
+        if index_intersection.empty:
+            new_df = pd.concat([old, bars])
+        else:
+            # merge overlapping timestamps by highest volume
+            existing = old.iloc[:old.index.get_loc(index_intersection[0])]
+            intersection_bars = []
+            for idx in index_intersection:
+                if bars.loc[idx]['Volume'] > old.loc[idx]['Volume']:
+                    intersection_bars.append(bars.loc[idx])
+                else:
+                    intersection_bars.append(old.loc[idx])
+            intersection = pd.DataFrame(intersection_bars)
+            new = bars.iloc[bars.index.get_loc(index_intersection[-1])+1:]
+            new_df = pd.concat([existing, intersection, new])
 
-        new_df = pd.concat([df, bars])
         self.write(symbol, freq, new_df)
         return new_df
 
