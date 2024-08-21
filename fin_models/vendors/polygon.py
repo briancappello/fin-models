@@ -18,12 +18,22 @@ from fin_models.serializers import CompanyDetailsSerializer
 HOST = "https://api.polygon.io"
 VALID_TIMEFRAMES = {
     Freq.min_1: "minute",
+    Freq.min_5: "minute",
+    Freq.min_10: "minute",
+    Freq.min_15: "minute",
+    Freq.min_30: "minute",
     Freq.hour: "hour",
     Freq.day: "day",
     Freq.week: "week",
     Freq.month: "month",
     Freq.quarter: "quarter",
     Freq.year: "year",
+}
+TIMEFRAME_AGGS = {
+    Freq.min_5: 5,
+    Freq.min_10: 10,
+    Freq.min_15: 15,
+    Freq.min_30: 30,
 }
 
 
@@ -84,6 +94,8 @@ def datefmt(dt: DateType | str | None) -> str:
 def make_url(uri: str, query_params: dict | None = None) -> str:
     query = {**(query_params or {}), **dict(apiKey=Config.POLYGON_API_KEY)}
     if "://" in uri:
+        if "apiKey" in uri:
+            return uri
         return f"{uri}{'&' if '?' in uri else '?'}{urlencode(query)}"
     return f"{HOST}/{uri.strip('/')}?{urlencode(query)}"
 
@@ -120,7 +132,7 @@ def get_daily_bars_for_date(
     """
     Return OHLCV bars for all active symbols on the given date
     """
-    date_ = to_ts(date_, date.today())
+    date_ = to_ts(date_, default=date.today())
     data = _get(
         f"/v2/aggs/grouped/locale/us/market/stocks/{isodate(date_)}",
         dict(adjusted=adjusted, include_otc=include_otc),
@@ -134,9 +146,9 @@ def get_daily_bars_for_date(
 
 def make_minutely_urls(
     symbol: str,
+    freq: Freq,
     start: DateType | str,
     end: DateType | str,
-    agg: int = 1,
 ) -> list[str]:
     start = to_ts(start)
     end = to_ts(end)
@@ -149,7 +161,7 @@ def make_minutely_urls(
             break
         start = interval_end + pd.Timedelta(days=1)
 
-    return [make_history_url(symbol, Freq.min_1, s, e, agg) for s, e in intervals]
+    return [make_history_url(symbol, freq, s, e) for s, e in intervals]
 
 
 def make_history_url(
@@ -157,11 +169,11 @@ def make_history_url(
     freq: Freq,
     start: DateType | str,
     end: DateType | str | None = None,
-    agg: int = 1,
 ) -> str:
     s = datefmt(start)
     e = datefmt(end)
     timeframe = VALID_TIMEFRAMES[freq]
+    agg = TIMEFRAME_AGGS.get(freq, 1)
     return make_url(
         f"/v2/aggs/ticker/{symbol.upper()}/range/{agg}/{timeframe}/{s}/{e}",
         dict(adjusted="true", sort="asc", limit=50_000),
@@ -173,18 +185,20 @@ def get_df(
     freq: Freq = Freq.day,
     start: DateType | str | None = None,
     end: DateType | str | None = None,
-    agg: int = 1,
 ) -> pd.DataFrame:
     end = to_ts(end, default=date.today())
-    start = to_ts(start, default=end - timedelta(days=365 * 10))
+    start = to_ts(
+        start,
+        default=end - timedelta(days=365 * Config.POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE),
+    )
 
-    if freq == Freq.min_1 and (end - start) > MAX_MINUTE_DAYS:
+    if freq < Freq.hour and (end - start) > MAX_MINUTE_DAYS:
         dataframes = []
-        for url in make_minutely_urls(symbol, start, end, agg):
+        for url in make_minutely_urls(symbol, freq, start, end):
             dataframes.append(json_to_df(_get(url)))
         return pd.concat(dataframes)
 
-    url = make_history_url(symbol, freq, start, end, agg)
+    url = make_history_url(symbol, freq, start, end)
     return json_to_df(_get(url))
 
 

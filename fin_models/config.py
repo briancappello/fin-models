@@ -4,9 +4,9 @@ import os
 
 
 class Config:
-    DATA_DIR = os.path.expanduser("~/.fin-models-data")
+    DATA_DIR: str = os.path.expanduser("~/.fin-models-data")
 
-    DATABASE_URI = "{engine}://{user}:{pw}@{host}:{port}/{db}".format(
+    DATABASE_URI: str = "{engine}://{user}:{pw}@{host}:{port}/{db}".format(
         engine=os.getenv("SQLALCHEMY_DATABASE_ENGINE", "postgresql+psycopg2"),
         user=os.getenv("SQLALCHEMY_DATABASE_USER", "fin_models"),
         pw=os.getenv("SQLALCHEMY_DATABASE_PASSWORD", "fin-models"),
@@ -15,7 +15,8 @@ class Config:
         db=os.getenv("SQLALCHEMY_DATABASE_NAME", "fin_models"),
     )
 
-    POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+    POLYGON_API_KEY: str = os.getenv("POLYGON_API_KEY")
+    POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE: int = 5
 
 
 """
