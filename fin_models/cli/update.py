@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 import click
 import pandas as pd
 
@@ -47,5 +45,4 @@ def update_command(timeframe: str = "day"):
                 store.append(symbol, freq, df)
 
     elif freq == Freq.min_1:
-        for symbol in symbols:
-            raise NotImplementedError
+        raise NotImplementedError

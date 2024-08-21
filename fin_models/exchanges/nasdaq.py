@@ -1,9 +1,5 @@
-import io
-
 import pandas as pd
 import requests
-
-from ..utils import html_unescape, str_strip
 
 
 NASDAQ_GS_URL = "https://api.nasdaq.com/api/screener/stocks?exchange=NASDAQ&exsubcategory=NGS&download=true"
