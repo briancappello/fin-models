@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy_unchained import *
 
 from .config import Config

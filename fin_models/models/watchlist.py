@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .. import db
 from .watchlist_asset import WatchlistAsset
 

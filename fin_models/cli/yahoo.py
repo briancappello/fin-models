@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fin_models.cli.groups import yahoo
 from fin_models.vendors import yahoo as vendor
 

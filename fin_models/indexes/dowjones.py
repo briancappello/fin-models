@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ..utils import get_wiki_table_df, wiki_components_list_to_df
 
 

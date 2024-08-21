@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .nasdaq import get_exchange_df
 
 

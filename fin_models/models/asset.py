@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .. import db
 from ..enums import AssetType
 from .asset_data_vendor import AssetDataVendor

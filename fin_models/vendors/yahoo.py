@@ -20,16 +20,16 @@ from fin_models.utils import get_soup, kmbt_to_int, table_to_df, to_float, to_pe
 
 BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?{query}"
 VALID_TIMEFRAMES = {
-    Freq.min_1: '1m',
-    Freq.min_5: '5m',
-    Freq.min_10: '10m',
-    Freq.min_15: '15m',
-    Freq.min_30: '30m',
-    Freq.hour: '1h',  # seems to be the same as 60m
-    Freq.day: '1d',
-    Freq.week: '1wk',  # not the same as 5d; 1wk is calendar-aligned
-    Freq.month: '1mo',
-    Freq.quarter: '3mo',
+    Freq.min_1: "1m",
+    Freq.min_5: "5m",
+    Freq.min_10: "10m",
+    Freq.min_15: "15m",
+    Freq.min_30: "30m",
+    Freq.hour: "1h",  # seems to be the same as 60m
+    Freq.day: "1d",
+    Freq.week: "1wk",  # not the same as 5d; 1wk is calendar-aligned
+    Freq.month: "1mo",
+    Freq.quarter: "3mo",
 }
 EST = gettz("America/New_York")
 BST = gettz("Europe/London")
@@ -70,7 +70,11 @@ def sanitize_dates(
     end = to_datetime(end)
 
     if start is None:
-        days = 50 if timeframe < Freq.day else (365 * 100 - 1)  # 100 years(ish)
+        days = (
+            7
+            if timeframe == Freq.min_1
+            else (50 if timeframe < Freq.day else (365 * 100 - 1))  # 100 years(ish)
+        )
         start = end - timedelta(days=days)
     start = to_datetime(start)
 
@@ -135,8 +139,10 @@ def get_yfi_url_and_cookies(
     include_extended: bool = False,
 ) -> tuple[str, RequestsCookieJar]:
     if timeframe not in VALID_TIMEFRAMES:
-        raise NotImplementedError(f'Yahoo does not support timeframe={timeframe}. '
-                                  f'Must be one of {list(VALID_TIMEFRAMES.keys())}.')
+        raise NotImplementedError(
+            f"Yahoo does not support timeframe={timeframe}. "
+            f"Must be one of {list(VALID_TIMEFRAMES.keys())}."
+        )
 
     start, end = sanitize_dates(start, end, timeframe)
     q = {
@@ -145,7 +151,9 @@ def get_yfi_url_and_cookies(
         "period2": int(end.timestamp()),
         "interval": VALID_TIMEFRAMES[timeframe],
         "useYfid": "true",
-        "includePrePost": "true" if include_extended and timeframe < Freq.day else "false",
+        "includePrePost": (
+            "true" if include_extended and timeframe < Freq.day else "false"
+        ),
         "events": "div|split|earn",
         "crumb": cookie_crumb_cache.crumb,
         "corsDomain": "finance.yahoo.com",
@@ -164,9 +172,11 @@ def yfi_json_to_df(data: dict, timeframe: Freq = Freq.day) -> pd.DataFrame | Non
     data = result["result"][0]
     try:
         quotes = data["indicators"]["quote"][0]
-        index = pd.DatetimeIndex(
-            pd.to_datetime(data["timestamp"], unit="s"), name="Epoch"
-        ).tz_localize('UTC').tz_convert("America/New_York")
+        index = (
+            pd.DatetimeIndex(pd.to_datetime(data["timestamp"], unit="s"), name="Epoch")
+            .tz_localize("UTC")
+            .tz_convert("America/New_York")
+        )
         if timeframe == Freq.day:
             index = index.normalize()
 
@@ -257,7 +267,10 @@ def get_most_actives(
                 "operator": "AND",
                 "operands": [
                     {"operator": "eq", "operands": ["region", region.lower()]},
-                    {"operator": "gt", "operands": ["dayvolume", int(min_intraday_vol)]},
+                    {
+                        "operator": "gt",
+                        "operands": ["dayvolume", int(min_intraday_vol)],
+                    },
                     {
                         "operator": "gt",
                         "operands": ["intradayprice", float(min_intraday_price)],

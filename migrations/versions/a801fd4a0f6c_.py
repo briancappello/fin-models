@@ -6,6 +6,8 @@ Create Date: 2023-06-30 20:28:16.349606
 
 """
 
+from __future__ import annotations
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -215,7 +217,9 @@ def upgrade():
             "updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
         ),
         sa.ForeignKeyConstraint(
-            ["sector_id"], ["sector.id"], name=op.f("fk_industry_to_sector_id_on_sector")
+            ["sector_id"],
+            ["sector.id"],
+            name=op.f("fk_industry_to_sector_id_on_sector"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_industry")),
     )
@@ -355,7 +359,9 @@ def upgrade():
             name=op.f("fk_equity_index_to_equity_id_on_equity"),
         ),
         sa.ForeignKeyConstraint(
-            ["index_id"], ["index.id"], name=op.f("fk_equity_index_to_index_id_on_index")
+            ["index_id"],
+            ["index.id"],
+            name=op.f("fk_equity_index_to_index_id_on_index"),
         ),
         sa.PrimaryKeyConstraint("equity_id", "index_id", name=op.f("pk_equity_index")),
     )

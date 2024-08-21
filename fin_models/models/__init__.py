@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .asset import Asset
 from .asset_data_vendor import AssetDataVendor
 from .country import Country

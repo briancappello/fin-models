@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .. import db
 from .data_item_vendor import DataItemVendor
 

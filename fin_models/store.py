@@ -123,15 +123,15 @@ class Store:
             new_df = pd.concat([old, bars])
         else:
             # merge overlapping timestamps by highest volume
-            existing = old.iloc[:old.index.get_loc(index_intersection[0])]
+            existing = old.iloc[:old.index.get_loc(index_intersection[0])]  # fmt: skip
             intersection_bars = []
             for idx in index_intersection:
-                if bars.loc[idx]['Volume'] > old.loc[idx]['Volume']:
+                if bars.loc[idx]["Volume"] > old.loc[idx]["Volume"]:
                     intersection_bars.append(bars.loc[idx])
                 else:
                     intersection_bars.append(old.loc[idx])
             intersection = pd.DataFrame(intersection_bars)
-            new = bars.iloc[bars.index.get_loc(index_intersection[-1])+1:]
+            new = bars.iloc[bars.index.get_loc(index_intersection[-1]) + 1:]  # fmt: skip
             new_df = pd.concat([existing, intersection, new])
 
         self.write(symbol, freq, new_df)

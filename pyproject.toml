@@ -34,11 +34,8 @@ alembic = "^1.11.1"
 psycopg2 = "^2.9.6"
 pandas-market-calendars = "^4.1.4"
 marshmallow = "^3.20.2"
-pydantic = "^2.6.1"
 
 [tool.poetry.group.dev.dependencies]
-black = ">=24.1"
-isort = ">=5.12.0"
 mypy = ">=1.8.0"
 pytest = ">=7.4.0"
 pandas-stubs = "^2.1.4.231227"
@@ -46,26 +43,26 @@ types-beautifulsoup4 = "^4.12.0.20240106"
 types-python-dateutil = "^2.8.19.20240106"
 types-requests = "^2.31.0.20240125"
 sqlalchemy2-stubs = "^0.0.2a38"
+ruff = "^0.6.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
+[tool.ruff]
 line-length = 90
-target-version = ['py310']
-preview = true
+target-version = "py310"
 
-[tool.isort]
-profile = "black"
-include_trailing_comma = true
-lines_between_types = 1
-lines_after_imports = 2
-multi_line_output = 3
-sections = "FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER"
-known_first_party = [
-    "sqlalchemy_unchained",
-]
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+lines-after-imports = 2
+lines-between-types = 1
+required-imports = ["from __future__ import annotations"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+known-first-party = ["sqlalchemy_unchained"]
 
 [[tool.mypy.overrides]]
 module = [

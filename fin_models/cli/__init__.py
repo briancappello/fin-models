@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .groups import main, yahoo
 from .init import init_command
 from .symbols import symbols_command
