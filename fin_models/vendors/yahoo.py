@@ -25,9 +25,9 @@ VALID_TIMEFRAMES = {
     Freq.min_10: '10m',
     Freq.min_15: '15m',
     Freq.min_30: '30m',
-    Freq.hour: '1h',  # or 60m; are they different somehow?
+    Freq.hour: '1h',  # seems to be the same as 60m
     Freq.day: '1d',
-    Freq.week: '1wk',  # or 5d; are they different somehow?
+    Freq.week: '1wk',  # not the same as 5d; 1wk is calendar-aligned
     Freq.month: '1mo',
     Freq.quarter: '3mo',
 }
@@ -70,7 +70,7 @@ def sanitize_dates(
     end = to_datetime(end)
 
     if start is None:
-        days = 7 if timeframe == Freq.min_1 else (365 * 100 - 1)  # 100 years(ish)
+        days = 50 if timeframe < Freq.day else (365 * 100 - 1)  # 100 years(ish)
         start = end - timedelta(days=days)
     start = to_datetime(start)
 
@@ -132,6 +132,7 @@ def get_yfi_url_and_cookies(
     timeframe: Freq = Freq.day,
     start: datetime | None = None,
     end: datetime | None = None,
+    include_extended: bool = False,
 ) -> tuple[str, RequestsCookieJar]:
     if timeframe not in VALID_TIMEFRAMES:
         raise NotImplementedError(f'Yahoo does not support timeframe={timeframe}. '
@@ -144,7 +145,7 @@ def get_yfi_url_and_cookies(
         "period2": int(end.timestamp()),
         "interval": VALID_TIMEFRAMES[timeframe],
         "useYfid": "true",
-        "includePrePost": "false",
+        "includePrePost": "true" if include_extended and timeframe < Freq.day else "false",
         "events": "div|split|earn",
         "crumb": cookie_crumb_cache.crumb,
         "corsDomain": "finance.yahoo.com",
@@ -195,11 +196,18 @@ def get_df(
     timeframe: Freq = Freq.day,
     start: datetime | None = None,
     end: datetime | None = None,
+    include_extended: bool = False,
 ) -> pd.DataFrame | None:
     """
     Fetch historical data from Yahoo! Finance.
     """
-    url, cookies = get_yfi_url_and_cookies(ticker, timeframe, start, end)
+    url, cookies = get_yfi_url_and_cookies(
+        ticker,
+        timeframe=timeframe,
+        start=start,
+        end=end,
+        include_extended=include_extended,
+    )
     r = requests.get(
         url,
         cookies=cookies,
