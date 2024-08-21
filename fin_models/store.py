@@ -142,6 +142,7 @@ class Store:
         if df.empty:
             return df
 
+        # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
         resample_freq = {Freq.month: "MS", Freq.year: "YS"}.get(to_freq, to_freq.value)
         agg_df = df.resample(resample_freq).apply(RESAMPLE_COLUMNS).ffill()
         if to_freq == Freq.week:
