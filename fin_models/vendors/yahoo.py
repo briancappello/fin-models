@@ -118,9 +118,9 @@ cookie_crumb_cache = CookieCrumbCache()
 
 def get_yfi_url_and_cookies(
     ticker: str,
+    timeframe: Freq = Freq.day,
     start: datetime | None = None,
     end: datetime | None = None,
-    timeframe: Freq = Freq.day,
 ) -> tuple[str, RequestsCookieJar]:
     start, end = sanitize_dates(start, end, timeframe)
     q = {
@@ -177,14 +177,14 @@ def yfi_json_to_df(data: dict, timeframe: Freq = Freq.day) -> pd.DataFrame | Non
 
 def get_df(
     ticker: str,
+    timeframe: Freq = Freq.day,
     start: datetime | None = None,
     end: datetime | None = None,
-    timeframe: Freq = Freq.day,
 ) -> pd.DataFrame | None:
     """
     Fetch historical data from Yahoo! Finance.
     """
-    url, cookies = get_yfi_url_and_cookies(ticker, start, end, timeframe)
+    url, cookies = get_yfi_url_and_cookies(ticker, timeframe, start, end)
     r = requests.get(
         url,
         cookies=cookies,
