@@ -17,20 +17,3 @@ class Config:
 
     POLYGON_API_KEY: str = os.getenv("POLYGON_API_KEY")
     POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE: int = 5
-
-
-"""
-import sys
-
-sys.path.append("/home/brian/.virtualenvs/fin-models-hPICNqV0-py3.11/lib/python3.11/site-packages")
-sys.path.append("/home/brian/.virtualenvs/ta-lib/lib/python3.11/site-packages")
-sys.path.append("/home/brian/dev/fin-models")
-
-import pandas as pd
-import talib as ta
-import numpy as np
-
-from fin_models.config import Config
-from fin_models.store import Store
-from fin_models.vendors import polygon
-"""
