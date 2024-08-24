@@ -143,10 +143,18 @@ class Store:
             return df
 
         # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
-        resample_freq = {Freq.month: "MS", Freq.year: "YS"}.get(to_freq, to_freq.value)
-        agg_df = df.resample(resample_freq).apply(RESAMPLE_COLUMNS).ffill()
-        if to_freq == Freq.week:
-            agg_df.index = agg_df.index - pd.Timedelta(days=6)
+        if to_freq < Freq.day:
+            agg_df = pd.concat(
+                [
+                    _agg(_premarket(df), to_freq),
+                    _agg(_openmarket(df), to_freq),
+                    _agg(_aftermarket(df), to_freq),
+                ]
+            ).sort_index()
+        else:
+            agg_df = _agg(df, to_freq)
+            if to_freq == Freq.week:
+                agg_df.index = agg_df.index - pd.Timedelta(days=6)
         return agg_df
 
     def write(self, symbol: str, freq: Freq, df: pd.DataFrame) -> None:
@@ -229,3 +237,24 @@ class Store:
 
     def _delete_all(self, symbol):
         shutil.rmtree(os.path.join(self._root_dir, symbol.upper()))
+
+
+def _premarket(df: pd.DataFrame) -> pd.DataFrame:
+    return df.between_time("04:00", "09:30", inclusive="left")
+
+
+def _openmarket(df: pd.DataFrame) -> pd.DataFrame:
+    return df.between_time("09:30", "16:00", inclusive="left")
+
+
+def _aftermarket(df: pd.DataFrame) -> pd.DataFrame:
+    return df.between_time("16:00", "20:00", inclusive="left")
+
+
+def _agg(df: pd.DataFrame, freq: Freq, origin="start") -> pd.DataFrame:
+    resample_freq = {
+        Freq.month: "MS",
+        Freq.quarter: "QS",
+        Freq.year: "YS",
+    }.get(freq, freq.value)
+    return df.resample(resample_freq, origin=origin).apply(RESAMPLE_COLUMNS).dropna()
