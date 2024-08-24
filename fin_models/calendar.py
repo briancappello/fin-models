@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import pandas_market_calendars as mcal
 
-from fin_models.date_utils import DateType, to_ts, utc_now
+from fin_models.date_utils import DateType, to_ts, ts_utcnow
 
 
 TIME_BUFFER = pd.Timedelta(days=7)
@@ -45,7 +45,7 @@ class Calendar:
             On Friday after 9:30AM EST, returns Friday's schedule
             On Saturday, returns Friday's schedule
         """
-        end = utc_now()
+        end = ts_utcnow()
         start = end - TIME_BUFFER
         schedule = self.schedule(start, end, include_extended=include_extended)
         return schedule[

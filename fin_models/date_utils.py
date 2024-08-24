@@ -13,7 +13,14 @@ UTC = timezone.utc
 EASTERN_TZ = ZoneInfo("America/New_York")
 
 
-def utc_now() -> pd.Timestamp:
+def utcnow() -> datetime:
+    """
+    Returns a current timezone-aware ``datetime.datetime`` in UTC.
+    """
+    return datetime.now(timezone.utc)
+
+
+def ts_utcnow() -> pd.Timestamp:
     return pd.Timestamp("now", tz=UTC)
 
 
@@ -31,11 +38,11 @@ def to_ts(
         ts = pd.Timestamp(dt)
     else:
         if default == "now":
-            return utc_now()
+            return ts_utcnow()
         ts = pd.Timestamp(default)
 
     is_date = False
-    if ts == pd.Timestamp(ts.date()):
+    if ts == pd.Timestamp(ts.date(), tz=ts.tz):
         is_date = True
 
     if not ts.tz:

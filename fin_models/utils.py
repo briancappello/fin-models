@@ -3,8 +3,6 @@ from __future__ import annotations
 import html
 import re
 
-from datetime import datetime, timezone
-
 import pandas as pd
 import requests
 
@@ -59,13 +57,6 @@ def wiki_components_list_to_df(list_tag):
 def chunk(iterable, size):
     for i in range(0, len(iterable), size):
         yield iterable[i : i + size]
-
-
-def utcnow() -> datetime:
-    """
-    Returns a current timezone-aware ``datetime.datetime`` in UTC.
-    """
-    return datetime.now(timezone.utc)
 
 
 def str_strip(s):

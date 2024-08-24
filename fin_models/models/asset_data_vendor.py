@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from .. import db
+from ..date_utils import utcnow
 from ..enums import Freq
-from ..utils import utcnow
 
 
 class AssetDataVendor(db.Model):
@@ -41,21 +41,24 @@ class AssetDataVendor(db.Model):
         self._ticker = ticker
 
     def last_updated(self, frequency: Freq):
-        if frequency == Freq.month:
-            return self.monthly_last_updated
-        elif frequency == Freq.week:
-            return self.weekly_last_updated
+        if frequency == Freq.min_1:
+            return self.minutely_last_updated
         elif frequency == Freq.day:
             return self.daily_last_updated
-        return self.minutely_last_updated
+        elif frequency == Freq.week:
+            return self.weekly_last_updated
+        if frequency == Freq.month:
+            return self.monthly_last_updated
+        raise NotImplementedError
 
     def set_last_updated(self, frequency: Freq, time=None):
         time = time or utcnow()
-        if frequency == Freq.month:
-            self.monthly_last_updated = time
-        elif frequency == Freq.week:
-            self.weekly_last_updated = time
+        if frequency == Freq.min_1:
+            self.minutely_last_updated = time
         elif frequency == Freq.day:
             self.daily_last_updated = time
-        else:
-            self.minutely_last_updated = time
+        elif frequency == Freq.week:
+            self.weekly_last_updated = time
+        elif frequency == Freq.month:
+            self.monthly_last_updated = time
+        raise NotImplementedError
