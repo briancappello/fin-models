@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import sys
-
 from enum import Enum as BaseEnum
 from enum import EnumMeta as BaseEnumMeta
 
@@ -97,12 +95,13 @@ class OrderedEnum(Enum, metaclass=OrderedEnumMeta):
 # https://pandas.pydata.org/docs/user_guide/timeseries.html#period-aliases
 class Freq(OrderedEnum):
     min_1 = "1min"
+    min_2 = "2min"
     min_5 = "5min"
     min_10 = "10min"
     min_15 = "15min"
     min_30 = "30min"
     hour = "h"
-    day = "D"
+    day = "D"  # or B for business day?
     week = "W"
     month = "M"
     quarter = "Q"
