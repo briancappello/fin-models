@@ -310,7 +310,8 @@ def get_symbols(
 
 
 def get_company_details(
-    symbol: str, on_date: DateType | str | None = None,
+    symbol: str,
+    on_date: DateType | str | None = None,
 ) -> CompanyDetails:
     """
     Get company details for a ticker symbol on a given date.
