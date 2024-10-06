@@ -19,6 +19,12 @@ from .groups import main
 
 @main.command("init")
 @click.option(
+    "--symbols",
+    type=str,
+    default=None,
+    help="Optional list of symbols to initialize",
+)
+@click.option(
     "--types",
     type=click.Choice(["commonn", "CS", "preferred", "PFD", "ETF"], case_sensitive=False),
     multiple=True,
@@ -44,6 +50,7 @@ from .groups import main
     help="the timeframe to initialize",
 )
 def init_command(
+    symbols: str | None = None,
     types: list[str] | str | None = None,
     start: str | None = None,
     end: str | None = None,
@@ -55,10 +62,15 @@ def init_command(
     end = to_ts(end, default=date.today())
     start = to_ts(start, default=end - timedelta(days=365 * 5))
 
-    all_symbols_data = polygon.get_tickers(types)
-    tickers = [d["ticker"] for d in all_symbols_data if not store.has(d["ticker"], freq)]
+    if symbols:
+        symbols = [symbol.strip().upper() for symbol in symbols.split(",")]
+    else:
+        symbols = polygon.get_symbols(types)
 
-    init(tickers, start, end, freq)
+    # filter out already-initialized symbols
+    symbols = [symbol for symbol in symbols if not store.has(symbol, freq)]
+
+    init(symbols, start, end, freq)
 
 
 def init(symbols_: list[str], start, end, freq: Freq):

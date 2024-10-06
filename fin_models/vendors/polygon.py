@@ -276,6 +276,15 @@ def get_tickers(types: list[str] | str | None = None) -> list[dict]:
     return tickers
 
 
+def get_symbols(
+    types: list[TickerType] | list[str] | TickerType | str | None = None,
+) -> list[str]:
+    """
+    Get a list of all symbols supported by Polygon by share class type.
+    """
+    return [d["ticker"] for d in get_tickers(types)]
+
+
 def get_company_details(
     symbol: str, on_date: DateType | str | None = None
 ) -> CompanyDetails:
