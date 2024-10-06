@@ -14,10 +14,13 @@ from .groups import main
 @main.command("symbols")
 @click.option(
     "--types",
-    type=click.Choice(["commonn", "CS", "preferred", "PFD", "ETF"], case_sensitive=False),
+    type=click.Choice(
+        ["ADRC", "ADRP", "commonn", "CS", "preferred", "PFD", "ETF"],
+        case_sensitive=False,
+    ),
     multiple=True,
     default=None,
-    help="types of share classes to fetch and store",
+    help="Types of share classes to fetch and store",
 )
 def symbols_command(types: list[str] | str | None = None):
     """Fetch and store ticker symbols data supported by Polygon."""

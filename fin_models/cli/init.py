@@ -26,10 +26,13 @@ from .groups import main
 )
 @click.option(
     "--types",
-    type=click.Choice(["commonn", "CS", "preferred", "PFD", "ETF"], case_sensitive=False),
+    type=click.Choice(
+        ["ADRC", "ADRP", "commonn", "CS", "preferred", "PFD", "ETF"],
+        case_sensitive=False,
+    ),
     multiple=True,
     default=None,
-    help="types of share classes to initialize",
+    help="Types of share classes to initialize",
 )
 @click.option(
     "--start",
@@ -47,7 +50,7 @@ from .groups import main
     "--timeframe",
     type=click.Choice(["minute", "day"]),
     default="day",
-    help="the timeframe to initialize",
+    help="Timeframe to initialize",
 )
 def init_command(
     symbols: str | None = None,
