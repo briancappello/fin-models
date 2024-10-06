@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import talib as ta
@@ -217,12 +216,3 @@ def local_min_max(df, num_periods=5):
         argrelextrema(df.Close.values, np.greater_equal, order=num_periods)
     ]
     return mins, maxs
-
-
-def plot_local_min_max(df, nump=5):
-    mins, maxs = local_min_max(df, nump)
-    fig, ax = plt.subplots()
-    ax.scatter(maxs.index, maxs, c="g")
-    ax.scatter(mins.index, mins, c="r")
-    ax.plot(df.index, df.Close)
-    plt.show()
