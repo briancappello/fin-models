@@ -8,14 +8,13 @@ import click
 import pandas as pd
 
 from fin_models.bulk_downloader import bulk_download
-from fin_models.cli_old import init as init_daily_with_yahoo
 from fin_models.date_utils import to_ts
 from fin_models.enums import Freq
 from fin_models.services import store
 from fin_models.utils import chunk
 from fin_models.vendors import polygon
 
-from .groups import main, yahoo
+from .groups import main
 
 
 @main.command("init")
@@ -92,10 +91,3 @@ def init(symbols_: list[str], start, end, freq: Freq):
                 df = pd.concat(dataframes).sort_index()
                 store.write(symbol, freq, df)
                 print(f"{symbol}: Added {len(df)} bars")
-
-
-@yahoo.command("init")
-@click.option("--symbols", type=str, default=None)
-def _init_daily_with_yahoo(symbols: str | None = None):
-    """Initialize daily historical data from Yahoo! Finance"""
-    init_daily_with_yahoo(symbols)
