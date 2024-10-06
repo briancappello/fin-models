@@ -5,6 +5,7 @@ import os
 
 class Config:
     DATA_DIR: str = os.path.expanduser("~/.fin-models-data")
+    SYMBOLS_DATA_FILEPATH = os.path.join(DATA_DIR, "symbols.json")
 
     DATABASE_URI: str = "{engine}://{user}:{pw}@{host}:{port}/{db}".format(
         engine=os.getenv("SQLALCHEMY_DATABASE_ENGINE", "postgresql+psycopg2"),

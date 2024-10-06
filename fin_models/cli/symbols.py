@@ -11,9 +11,6 @@ from fin_models.vendors import polygon
 from .groups import main
 
 
-FILEPATH = os.path.join(Config.DATA_DIR, "symbols.json")
-
-
 @main.command("symbols")
 @click.option(
     "--types",
@@ -23,18 +20,19 @@ FILEPATH = os.path.join(Config.DATA_DIR, "symbols.json")
     help="types of share classes to fetch and store",
 )
 def symbols_command(types: list[str] | str | None = None):
+    """Fetch and store ticker symbols data supported by Polygon."""
     types = polygon.normalize_ticker_types(types)
-    data = get_symbols(types)
+    data = get_and_save_symbols_data(types)
 
     for t in types:
         print(f'{t}: {len([d for d in data if d["type"] == t])}')
 
 
-def get_symbols(types: list[str] | str | None = None) -> list[dict]:
+def get_and_save_symbols_data(types: list[str] | str | None = None) -> list[dict]:
     data = polygon.get_tickers(types)
 
-    os.makedirs(Config.DATA_DIR, exist_ok=True)
-    with open(FILEPATH, "w") as f:
+    os.makedirs(os.path.dirname(Config.SYMBOLS_DATA_FILEPATH), exist_ok=True)
+    with open(Config.SYMBOLS_DATA_FILEPATH, "w") as f:
         json.dump(data, f, indent=2)
 
     return data
