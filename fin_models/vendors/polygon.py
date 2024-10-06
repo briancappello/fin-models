@@ -204,18 +204,22 @@ def get_df(
 
 def get_exchanges(asset_class: str = "stocks") -> list[dict]:
     """
-    [{
-      "acronym": "AMEX",
-      "asset_class": "stocks",
-      "id": 1,
-      "locale": "us",
-      "mic": "XASE",
-      "name": "NYSE American, LLC",
-      "operating_mic": "XNYS",
-      "participant_id": "A",
-      "type": "exchange",
-      "url": "https://www.nyse.com/markets/nyse-american"
-    }]
+    Get a list of exchanges for the given `asset_class`.
+
+    Example return value::
+
+        [{
+          "acronym": "AMEX",
+          "asset_class": "stocks",
+          "id": 1,
+          "locale": "us",
+          "mic": "XASE",
+          "name": "NYSE American, LLC",
+          "operating_mic": "XNYS",
+          "participant_id": "A",
+          "type": "exchange",
+          "url": "https://www.nyse.com/markets/nyse-american"
+        }]
     """
     data = _get("/v3/reference/exchanges", dict(asset_class=asset_class))
     return data["results"]
@@ -224,8 +228,22 @@ def get_exchanges(asset_class: str = "stocks") -> list[dict]:
 def normalize_ticker_types(
     types: list[TickerType] | list[str] | TickerType | str | None = None,
 ) -> list[str]:
+    """
+    Normalize types into strings supported by the Polygon API.
+
+    Defaults to ADRC, ADRP, CS, PFD and ETF.
+    """
     if not types:
-        return [t.name for t in (TickerType.CS, TickerType.PFD, TickerType.ETF)]
+        return [
+            t.name
+            for t in (
+                TickerType.ADRC,
+                TickerType.ADRP,
+                TickerType.CS,
+                TickerType.PFD,
+                TickerType.ETF,
+            )
+        ]
     elif isinstance(types, TickerType):
         return [types.name]
     elif isinstance(types, str):
@@ -241,22 +259,28 @@ def normalize_ticker_types(
     return [TickerType[t].name for t in types]
 
 
-def get_tickers(types: list[str] | str | None = None) -> list[dict]:
+def get_tickers(
+    types: list[TickerType] | list[str] | TickerType | str | None = None,
+) -> list[dict]:
     """
-    [{
-        "ticker": "A",
-        "name": "Agilent Technologies Inc.",
-        "market": "stocks",
-        "locale": "us",
-        "primary_exchange": "XNYS",
-        "type": "CS",
-        "active": true,
-        "currency_name": "usd",
-        "cik": "0001090872",
-        "composite_figi": "BBG000C2V3D6",
-        "share_class_figi": "BBG001SCTQY4",
-        "last_updated_utc": "2023-06-21T00:00:00Z"
-    }]
+    Get a list of all tickers data supported by Polygon by share class type.
+
+    Example return value::
+
+        [{
+            "ticker": "A",
+            "name": "Agilent Technologies Inc.",
+            "market": "stocks",
+            "locale": "us",
+            "primary_exchange": "XNYS",
+            "type": "CS",
+            "active": true,
+            "currency_name": "usd",
+            "cik": "0001090872",
+            "composite_figi": "BBG000C2V3D6",
+            "share_class_figi": "BBG001SCTQY4",
+            "last_updated_utc": "2023-06-21T00:00:00Z"
+        }]
     """
     types = normalize_ticker_types(types)
     tickers = []
@@ -286,40 +310,44 @@ def get_symbols(
 
 
 def get_company_details(
-    symbol: str, on_date: DateType | str | None = None
+    symbol: str, on_date: DateType | str | None = None,
 ) -> CompanyDetails:
     """
-    {
-        "active": true,
-        "address": {
-            "address1": "One Apple Park Way",
-            "city": "Cupertino",
-            "postal_code": "95014",
-            "state": "CA",
-        },
-        "cik": "0000320193",
-        "composite_figi": "BBG000B9XRY4",
-        "currency_name": "usd",
-        "description": "...",
-        "homepage_url": "https://www.apple.com",
-        "list_date": "1980-12-12",
-        "locale": "us",
-        "market": "stocks",
-        "market_cap": 2771126040150,
-        "name": "Apple Inc.",
-        "phone_number": "(408) 996-1010",
-        "primary_exchange": "XNAS",
-        "round_lot": 100,
-        "share_class_figi": "BBG001S5N8V8",
-        "share_class_shares_outstanding": 16406400000,
-        "sic_code": "3571",
-        "sic_description": "ELECTRONIC COMPUTERS",
-        "ticker": "AAPL",
-        "ticker_root": "AAPL",
-        "total_employees": 154000,
-        "type": "CS",
-        "weighted_shares_outstanding": 16334371000,
-    }
+    Get company details for a ticker symbol on a given date.
+
+    Example return value::
+
+        {
+            "active": true,
+            "address": {
+                "address1": "One Apple Park Way",
+                "city": "Cupertino",
+                "postal_code": "95014",
+                "state": "CA",
+            },
+            "cik": "0000320193",
+            "composite_figi": "BBG000B9XRY4",
+            "currency_name": "usd",
+            "description": "...",
+            "homepage_url": "https://www.apple.com",
+            "list_date": "1980-12-12",
+            "locale": "us",
+            "market": "stocks",
+            "market_cap": 2771126040150,
+            "name": "Apple Inc.",
+            "phone_number": "(408) 996-1010",
+            "primary_exchange": "XNAS",
+            "round_lot": 100,
+            "share_class_figi": "BBG001S5N8V8",
+            "share_class_shares_outstanding": 16406400000,
+            "sic_code": "3571",
+            "sic_description": "ELECTRONIC COMPUTERS",
+            "ticker": "AAPL",
+            "ticker_root": "AAPL",
+            "total_employees": 154000,
+            "type": "CS",
+            "weighted_shares_outstanding": 16334371000,
+        }
     """
     data = _get(
         f"/v3/reference/tickers/{symbol.upper()}",
