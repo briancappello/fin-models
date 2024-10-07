@@ -142,9 +142,17 @@ def median_volume(df: pd.DataFrame, num_bars: int = 50) -> float:
     return float(np.median(df.Volume[-num_bars:]))
 
 
+def median_volume_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
+    return df.Volume.rolling(num_bars).median()
+
+
 def median_body(df: pd.DataFrame, num_bars: int = 50) -> float:
     bodies = (df.Close[-num_bars:] - df.Open[-num_bars:]).abs()
     return float(np.median(bodies))
+
+
+def median_body_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
+    return (df.Close - df.Open).abs().rolling(num_bars).median()
 
 
 def volume_multiple_of_median(df: pd.DataFrame, num_bars: int = 50) -> float:
@@ -154,10 +162,18 @@ def volume_multiple_of_median(df: pd.DataFrame, num_bars: int = 50) -> float:
     return 0
 
 
+def volume_multiple_of_median_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
+    return df.Volume / median_volume_rolling(df, num_bars)
+
+
 def mean_volume(df: pd.DataFrame, num_bars: int = 50) -> float:
     if len(df) <= num_bars:
         return float(np.mean(df.Volume))
     return float(np.mean(df.Volume[-num_bars:]))
+
+
+def mean_volume_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
+    return df.Volume.rolling(num_bars).mean()
 
 
 def volume_multiple_of_mean(df: pd.DataFrame, num_bars: int = 50) -> float:
@@ -165,6 +181,10 @@ def volume_multiple_of_mean(df: pd.DataFrame, num_bars: int = 50) -> float:
     if mean_vol:
         return df.Volume.iloc[-1] / mean_vol
     return 0
+
+
+def volume_multiple_of_mean_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
+    return df.Volume / mean_volume_rolling(df, num_bars)
 
 
 def volume_sum_of_prior_days(df: pd.DataFrame) -> int:
