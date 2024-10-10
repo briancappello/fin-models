@@ -15,6 +15,9 @@ from fin_models.enums import Enum, Freq
 from fin_models.serializers import CompanyDetailsSerializer
 
 
+_default = object()
+
+
 HOST = "https://api.polygon.io"
 VALID_TIMEFRAMES = {
     Freq.min_1: "minute",
@@ -356,3 +359,30 @@ def get_company_details(
     )["results"]
     data.pop("branding", None)
     return CompanyDetailsSerializer().load(data)
+
+
+def get_splits(
+    dt: DateType | str | None = _default,
+    ticker: str | None = None,
+) -> list[dict]:
+    """
+    Get a list of splits on a given date. Defaults to the current date.
+
+    Example response::
+
+        {
+            "execution_date": "2024-10-10",
+            "id": "<UID>",
+            "split_from": 20,
+            "split_to": 1,
+            "ticker": "SYMBOL",
+        },
+    """
+    query_params = dict(limit=1000)
+    if dt is not None:
+        query_params["execution_date"] = isodate(None if dt is _default else dt)
+    if ticker:
+        query_params["ticker"] = ticker
+
+    data = _get("/v3/reference/splits", query_params=query_params)
+    return data["results"]
