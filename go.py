@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import argparse
 import json
 import multiprocessing
 import os
-import sys
 
-from datetime import date, datetime
+from datetime import date
 
 import numpy as np
 import pandas as pd
-import talib as ta
 
 from joblib import Parallel, delayed
 
 from fin_models import analysis_utils as au
+from fin_models.enums import Freq
 from fin_models.services import store
 
 
@@ -38,9 +38,15 @@ def json_default(o):
 
 
 def signal(symbol: str, end_date: str):
-    df = store.get(symbol).loc[:end_date]
+    no_result = dict(symbol=symbol)
+
+    df = store.get(symbol)
+    if df is None or df.empty:
+        return no_result
+
+    df = df.loc[:end_date]
     if len(df) < 100:
-        return dict(symbol=symbol)
+        return no_result
 
     return dict(
         symbol=symbol,
@@ -59,10 +65,11 @@ def signal(symbol: str, end_date: str):
 def cached_results(
     cache_filename: str,
     results: list[dict] | None = None,
+    fresh: bool = False,
 ) -> pd.DataFrame:
     results = results or []
 
-    if os.path.exists(cache_filename) and not results:
+    if not fresh and os.path.exists(cache_filename) and not results:
         with open(cache_filename) as f:
             try:
                 results = json.load(f)
@@ -76,15 +83,15 @@ def cached_results(
     return pd.DataFrame.from_records(results)
 
 
-def calculate_for_date(end_date: str | None = None) -> pd.DataFrame:
+def calculate_for_date(end_date: str | None = None, fresh: bool = False) -> pd.DataFrame:
     end_date = end_date or date.today().isoformat()
     results_filename = os.path.join(results_dir, f"{end_date}_results.json")
 
-    df = cached_results(cache_filename=results_filename)
+    df = cached_results(cache_filename=results_filename, fresh=fresh)
     if df.empty:
         fn_calls = [
             delayed(signal)(symbol=symbol, end_date=end_date)
-            for symbol in store.symbols()
+            for symbol in store.symbols(freq=Freq.day)
         ]
 
         r = Parallel(
@@ -98,7 +105,12 @@ def calculate_for_date(end_date: str | None = None) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    df = calculate_for_date()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", type=date.isoformat)
+    parser.add_argument("--fresh", action="store_true")
+    args = parser.parse_args()
+
+    df = calculate_for_date(args.date, fresh=args.fresh)
     filter1 = df["crossed_sma_100"] & (df["bars_since_prior_high"] > 20)
     filter2 = df["volume_multiple_of_median"] > 3
 
