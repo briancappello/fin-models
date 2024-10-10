@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from datetime import date, timedelta
+from typing import TypeAlias
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -73,6 +74,9 @@ class TickerType(Enum):
     SP = "Structured Product"
     UNIT = "Unit"
     WARRANT = "Warrant"
+
+
+TickerTypes: TypeAlias = list[TickerType] | list[str] | TickerType | str
 
 
 HISTORY_URL_REGEX = re.compile(
@@ -228,9 +232,7 @@ def get_exchanges(asset_class: str = "stocks") -> list[dict]:
     return data["results"]
 
 
-def normalize_ticker_types(
-    types: list[TickerType] | list[str] | TickerType | str | None = None,
-) -> list[str]:
+def normalize_ticker_types(types: TickerTypes | None = None) -> list[str]:
     """
     Normalize types into strings supported by the Polygon API.
 
@@ -262,9 +264,7 @@ def normalize_ticker_types(
     return [TickerType[t].name for t in types]
 
 
-def get_tickers(
-    types: list[TickerType] | list[str] | TickerType | str | None = None,
-) -> list[dict]:
+def get_tickers(types: TickerTypes | None = None) -> list[dict]:
     """
     Get a list of all tickers data supported by Polygon by share class type.
 
@@ -303,9 +303,7 @@ def get_tickers(
     return tickers
 
 
-def get_symbols(
-    types: list[TickerType] | list[str] | TickerType | str | None = None,
-) -> list[str]:
+def get_symbols(types: TickerTypes | None = None) -> list[str]:
     """
     Get a list of all symbols supported by Polygon by share class type.
     """
