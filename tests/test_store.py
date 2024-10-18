@@ -78,10 +78,6 @@ class TestEmptyStoreWithFreq:
     def test_get_historical_metadata(self, store, freq):
         assert store.get_historical_metadata("AMD", freq) is None
 
-    def test_append_raises(self, store, freq):
-        with pytest.raises(NotImplementedError):
-            store.append("AMD", freq, pd.DataFrame(["not empty"]))
-
 
 class TestStoreWithData:
     def test_symbols(self, store):

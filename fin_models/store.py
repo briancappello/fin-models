@@ -107,15 +107,16 @@ class Store:
             )
         )
 
-    def append(self, symbol: str, freq: Freq, bars: pd.DataFrame) -> pd.DataFrame:
+    def write(self, symbol: str, freq: Freq, bars: pd.DataFrame) -> pd.DataFrame:
+        """
+        Write or append bars to the store for a given symbol and frequency.
+        """
         if bars.empty:
             return self.get(symbol, freq)
 
         if not self.has_freq(symbol, freq):
-            # FIXME should we just call self.write() here?
-            raise NotImplementedError(
-                f"{freq} does not exist on-disk for {symbol}, cannot append"
-            )
+            self._write(symbol, freq, bars)
+            return bars
 
         old = self.get(symbol, freq)
         index_intersection = old.index.intersection(bars.index, sort=True)
@@ -134,7 +135,7 @@ class Store:
             new = bars.iloc[bars.index.get_loc(index_intersection[-1]) + 1:]  # fmt: skip
             new_df = pd.concat([existing, intersection, new])
 
-        self.write(symbol, freq, new_df)
+        self._write(symbol, freq, new_df)
         return new_df
 
     @staticmethod
@@ -157,11 +158,12 @@ class Store:
                 agg_df.index = agg_df.index - pd.Timedelta(days=6)
         return agg_df
 
-    def write(self, symbol: str, freq: Freq, df: pd.DataFrame) -> None:
-        if df is None or df.empty:
-            return
+    def _write(self, symbol: str, freq: Freq, df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df
         self._write_historical_metadata(symbol, freq, df)
         df.to_pickle(self._path(symbol, freq))
+        return df
 
     def write_company_details(self, symbol: str, data: CompanyDetails) -> None:
         with open(self._company_details_path(symbol), "w") as f:
@@ -236,7 +238,7 @@ class Store:
             os.remove(filepath)
 
     def _delete_all(self, symbol):
-        shutil.rmtree(os.path.join(self._root_dir, symbol.upper()))
+        shutil.rmtree(os.path.join(self._root_dir, symbol.upper()), ignore_errors=True)
 
 
 def _premarket(df: pd.DataFrame) -> pd.DataFrame:
