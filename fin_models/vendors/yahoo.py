@@ -18,7 +18,7 @@ from fin_models.enums import Freq
 from fin_models.utils import get_soup, kmbt_to_int, table_to_df, to_float, to_percent
 
 
-BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?{query}"
+BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?{query}"
 VALID_TIMEFRAMES = {
     Freq.min_1: "1m",
     Freq.min_5: "5m",
@@ -132,38 +132,36 @@ cookie_crumb_cache = CookieCrumbCache()
 
 
 def get_yfi_url_and_cookies(
-    ticker: str,
-    timeframe: Freq = Freq.day,
+    symbol: str,
+    freq: Freq = Freq.day,
     start: datetime | None = None,
     end: datetime | None = None,
     include_extended: bool = False,
 ) -> tuple[str, RequestsCookieJar]:
-    if timeframe not in VALID_TIMEFRAMES:
+    if freq not in VALID_TIMEFRAMES:
         raise NotImplementedError(
-            f"Yahoo does not support timeframe={timeframe}. "
+            f"Yahoo does not support freq={freq}. "
             f"Must be one of {list(VALID_TIMEFRAMES.keys())}."
         )
 
-    start, end = sanitize_dates(start, end, timeframe)
+    start, end = sanitize_dates(start, end, freq)
     q = {
-        "symbol": ticker,
+        "symbol": symbol,
         "period1": int(start.timestamp()),
         "period2": int(end.timestamp()),
-        "interval": VALID_TIMEFRAMES[timeframe],
+        "interval": VALID_TIMEFRAMES[freq],
         "useYfid": "true",
-        "includePrePost": (
-            "true" if include_extended and timeframe < Freq.day else "false"
-        ),
+        "includePrePost": ("true" if include_extended and freq < Freq.day else "false"),
         "events": "div|split|earn",
         "crumb": cookie_crumb_cache.crumb,
         "corsDomain": "finance.yahoo.com",
         "lang": "en-US",
         "region": "US",
     }
-    return BASE_URL.format(ticker=ticker, query=urlencode(q)), cookie_crumb_cache.cookies
+    return BASE_URL.format(symbol=symbol, query=urlencode(q)), cookie_crumb_cache.cookies
 
 
-def yfi_json_to_df(data: dict, timeframe: Freq = Freq.day) -> pd.DataFrame | None:
+def yfi_json_to_df(data: dict, freq: Freq = Freq.day) -> pd.DataFrame | None:
     result = data["chart"]
     if result["error"]:
         print(result["error"])
@@ -177,7 +175,7 @@ def yfi_json_to_df(data: dict, timeframe: Freq = Freq.day) -> pd.DataFrame | Non
             .tz_localize("UTC")
             .tz_convert("America/New_York")
         )
-        if timeframe == Freq.day:
+        if freq == Freq.day:
             index = index.normalize()
 
         df = pd.DataFrame(quotes, index=index)
@@ -185,25 +183,25 @@ def yfi_json_to_df(data: dict, timeframe: Freq = Freq.day) -> pd.DataFrame | Non
         df = df.ffill().sort_index()
         df.rename(columns=lambda name: name.title(), inplace=True)
         df = df[["Open", "High", "Low", "Close", "Volume"]]
-        if not len(df) or timeframe != Freq.day:
+        if not len(df) or freq != Freq.day:
             return df
 
         # check if 2 or more rows for the latest date
-        tail = df[df.iloc[-1].name.round("D") :]
+        tail = df[df.iloc[-1].name.round("D"):]  # fmt: skip
         if len(tail) == 1:
             return df
 
         # and if so, pick the best daily bar by greatest volume
         latest = tail.sort_values("Volume").iloc[-1]
-        return pd.concat([df.iloc[: -len(tail)], pd.DataFrame([latest])])
+        return pd.concat([df.iloc[:-len(tail)], pd.DataFrame([latest])])  # fmt: skip
     except Exception as e:
         print(str(e), "\n", data)
         return None
 
 
 def get_df(
-    ticker: str,
-    timeframe: Freq = Freq.day,
+    symbol: str,
+    freq: Freq = Freq.day,
     start: datetime | None = None,
     end: datetime | None = None,
     include_extended: bool = False,
@@ -212,8 +210,8 @@ def get_df(
     Fetch historical data from Yahoo! Finance.
     """
     url, cookies = get_yfi_url_and_cookies(
-        ticker,
-        timeframe=timeframe,
+        symbol,
+        freq=freq,
         start=start,
         end=end,
         include_extended=include_extended,
@@ -232,7 +230,7 @@ def get_df(
         print(url, r.status_code, r.headers, r.content)
         return None
 
-    return yfi_json_to_df(r.json(), timeframe)
+    return yfi_json_to_df(r.json(), freq)
 
 
 def get_most_actives(
