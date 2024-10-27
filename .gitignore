@@ -12,3 +12,4 @@ docs/_build
 docs/.doctrees
 venv/
 .idea
+analysis-results/
