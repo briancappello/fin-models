@@ -9,7 +9,7 @@ import pandas as pd
 
 from fin_models.bulk_downloader import bulk_download
 from fin_models.config import Config
-from fin_models.date_utils import to_ts
+from fin_models.date_utils import DateType, to_ts
 from fin_models.enums import Freq
 from fin_models.services import nyse, store
 from fin_models.utils import chunk
@@ -63,7 +63,7 @@ def sync_command(
 ):
     """
     Initialize or update historical data from Polygon
-    
+
     FIXME:
         - how to handle delisted symbols?
         - on splits, handle refetching all stored frequencies
@@ -81,11 +81,19 @@ def sync_command(
         symbols = polygon.get_symbols(types)
 
     init_or_update(
-        symbols, start, end, freq={"minute": Freq.min_1, "day": Freq.day}[freq]
+        symbols=symbols,
+        start=start,
+        end=end,
+        freq={"minute": Freq.min_1, "day": Freq.day}[freq],
     )
 
 
-def init_or_update(symbols: list[str], start, end, freq: Freq):
+def init_or_update(
+    symbols: list[str],
+    start: DateType,
+    end: DateType,
+    freq: Freq,
+):
     if freq not in {Freq.min_1, Freq.day}:
         raise NotImplementedError(
             "Data fetching is currently only implemented for Freq.min_1 and Freq.day"
