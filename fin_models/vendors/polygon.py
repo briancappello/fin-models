@@ -9,6 +9,8 @@ from urllib.parse import urlencode
 import pandas as pd
 import requests
 
+from requests.exceptions import HTTPError
+
 from fin_models.config import Config
 from fin_models.dataclasses import CompanyDetails
 from fin_models.date_utils import DateType, isodate, to_ts
@@ -255,7 +257,6 @@ def normalize_ticker_types(types: TickerTypes | None = None) -> list[str]:
         aliases = {
             "common": "CS",  # common stock
             "preferred": "PFD",  # preferred stock
-            "etf": "ETF",  # exchange traded fund
         }
         types = [
             aliases.get(t.strip().lower(), t.strip().upper()) for t in types.split(",")
@@ -313,7 +314,7 @@ def get_symbols(types: TickerTypes | None = None) -> list[str]:
 def get_company_details(
     symbol: str,
     on_date: DateType | str | None = None,
-) -> CompanyDetails:
+) -> CompanyDetails | None:
     """
     Get company details for a ticker symbol on a given date.
 
@@ -351,12 +352,18 @@ def get_company_details(
             "weighted_shares_outstanding": 16334371000,
         }
     """
-    data = _get(
-        f"/v3/reference/tickers/{symbol.upper()}",
-        query_params=dict(date=isodate(on_date)) if on_date else None,
-    )["results"]
-    data.pop("branding", None)
-    return CompanyDetailsSerializer().load(data)
+    try:
+        data = _get(
+            f"/v3/reference/tickers/{symbol.upper()}",
+            query_params=dict(date=isodate(on_date)) if on_date else None,
+        )["results"]
+    except HTTPError as e:
+        if e.response.status_code == 404:
+            return None
+        raise e
+    else:
+        data.pop("branding", None)
+        return CompanyDetailsSerializer().load(data)
 
 
 def get_splits(
@@ -383,4 +390,4 @@ def get_splits(
         query_params["ticker"] = ticker
 
     data = _get("/v3/reference/splits", query_params=query_params)
-    return data["results"]
+    return data.get("results") or []
