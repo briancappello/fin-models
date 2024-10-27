@@ -155,6 +155,27 @@ def median_body_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
     return (df.Close - df.Open).abs().rolling(num_bars).median()
 
 
+def median_body_pct(df: pd.DataFrame, num_bars: int = 50) -> float:
+    bodies = ((df.Close[-num_bars:] - df.Open[-num_bars:]) / df.Open[-num_bars:]).abs()
+    return float(np.median(bodies)) * 100
+
+
+def median_body_pct_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
+    return ((df.Close - df.Open) / df.Open).abs().rolling(num_bars).median()
+
+
+def body_multiple_of_median(df: pd.DataFrame, num_bars: int = 50) -> float:
+    this_body = abs(df.Close.iloc[-1] - df.Open.iloc[-1])
+    median = median_body(df, num_bars)
+    return this_body / median
+
+
+def body_multiple_of_median_pct(df: pd.DataFrame, num_bars: int = 50) -> float:
+    this_body_pct = abs((df.Close.iloc[-1] - df.Open.iloc[-1]) / df.Open.iloc[-1]) * 100
+    median_pct = median_body_pct(df, num_bars)
+    return this_body_pct / median_pct
+
+
 def volume_multiple_of_median(df: pd.DataFrame, num_bars: int = 50) -> float:
     median_vol = median_volume(df, num_bars)
     if median_vol:
@@ -162,7 +183,9 @@ def volume_multiple_of_median(df: pd.DataFrame, num_bars: int = 50) -> float:
     return 0
 
 
-def volume_multiple_of_median_rolling(df: pd.DataFrame, num_bars: int = 50) -> pd.DataFrame:
+def volume_multiple_of_median_rolling(
+    df: pd.DataFrame, num_bars: int = 50
+) -> pd.DataFrame:
     return df.Volume / median_volume_rolling(df, num_bars)
 
 
@@ -203,7 +226,23 @@ def is_trading_safe(df):
     return len(df) > 3 and median_volume(df) > 200_000
 
 
+def slope(series: pd.Series) -> float:
+    xs = [0, 1]
+    ys = [series.iloc[-2], series.iloc[-1]]
+    slope_val, y_intercept = np.polyfit(xs, ys, deg=1)
+    return slope_val
+
+
+def is_sloping_up(series: pd.Series) -> bool:
+    return slope(series) > 0
+
+
+def is_sloping_down(series: pd.Series) -> bool:
+    return slope(series) < 0
+
+
 def crossed_ma(df: pd.DataFrame, ma: int = 200, within_bars: int = 1):
+    """upwards cross only"""
     if len(df) < ma:
         return False
 
