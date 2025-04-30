@@ -1,38 +1,49 @@
 from __future__ import annotations
 
-from .. import db
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import ForeignKey
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base, pk
+
 from ..date_utils import utcnow
 from ..enums import Freq
 
 
-class AssetDataVendor(db.Model):
+if TYPE_CHECKING:
+    from .asset import Asset
+    from .data_vendor import DataVendor
+
+
+class AssetDataVendor(Base):
     """Join table between Asset and DataVendor"""
 
     class Meta:
         repr = ("asset_id", "data_vendor_id", "ticker")
 
-    asset_id = db.foreign_key("Asset", primary_key=True)
-    asset = db.relationship("Asset", back_populates="asset_data_vendors")
+    id: Mapped[pk]
 
-    data_vendor_id = db.foreign_key("DataVendor", primary_key=True)
-    data_vendor = db.relationship("DataVendor", back_populates="data_vendor_assets")
+    asset_id: Mapped[int] = mapped_column(ForeignKey("asset.id"), primary_key=True)
+    asset: Mapped["Asset"] = relationship(back_populates="asset_data_vendors")
+
+    data_vendor_id: Mapped[int] = mapped_column(
+        ForeignKey("data_vendor.id"),
+        primary_key=True,
+    )
+    data_vendor: Mapped["DataVendor"] = relationship(back_populates="data_vendor_assets")
 
     # vendor-specific ticker (if different from canonical ticker)
-    _ticker = db.Column("ticker", db.String(16), nullable=True)
+    _ticker: Mapped[str | None] = mapped_column("ticker")
 
-    minutely_last_updated = db.Column(db.DateTime(), nullable=True)
-    daily_last_updated = db.Column(db.DateTime(), nullable=True)
-    weekly_last_updated = db.Column(db.DateTime(), nullable=True)
-    monthly_last_updated = db.Column(db.DateTime(), nullable=True)
+    minutely_last_updated: Mapped[datetime]
+    daily_last_updated: Mapped[datetime]
+    weekly_last_updated: Mapped[datetime]
+    monthly_last_updated: Mapped[datetime]
 
-    def __init__(self, asset=None, data_vendor=None, **kwargs):
-        super(AssetDataVendor, self).__init__(**kwargs)
-        if asset:
-            self.asset = asset
-        if data_vendor:
-            self.data_vendor = data_vendor
-
-    @db.hybrid_property
+    @hybrid_property
     def ticker(self):
         return self._ticker or self.asset.ticker
 

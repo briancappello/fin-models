@@ -1,31 +1,37 @@
 from __future__ import annotations
 
-from .. import db
+from typing import TYPE_CHECKING
+
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base
 
 
-class IndexDataVendor(db.Model):
+if TYPE_CHECKING:
+    from .data_vendor import DataVendor
+    from .index import Index
+
+
+class IndexDataVendor(Base):
     """Join table between Index and DataVendor"""
 
     class Meta:
         repr = ("index_id", "data_vendor_id", "ticker")
 
-    index_id = db.foreign_key("Index", primary_key=True)
-    index = db.relationship("Index", back_populates="index_data_vendors")
+    index_id: Mapped[int] = mapped_column(ForeignKey("index.id"), primary_key=True)
+    index: Mapped["Index"] = relationship(back_populates="index_data_vendors")
 
-    data_vendor_id = db.foreign_key("DataVendor", primary_key=True)
-    data_vendor = db.relationship("DataVendor", back_populates="data_vendor_indexes")
+    data_vendor_id: Mapped[int] = mapped_column(
+        ForeignKey("data_vendor.id"), primary_key=True
+    )
+    data_vendor: Mapped["DataVendor"] = relationship(back_populates="data_vendor_indexes")
 
     # vendor-specific index ticker (if different from canonical index ticker)
-    _ticker = db.Column("ticker", db.String(16), nullable=True)
+    _ticker: Mapped[str | None] = mapped_column("ticker", String(16))
 
-    def __init__(self, index=None, data_vendor=None, **kwargs):
-        super(IndexDataVendor, self).__init__(**kwargs)
-        if index:
-            self.index = index
-        if data_vendor:
-            self.data_vendor = data_vendor
-
-    @db.hybrid_property
+    @hybrid_property
     def ticker(self):
         return self._ticker or self.index.ticker
 

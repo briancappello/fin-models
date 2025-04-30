@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from sqlalchemy import or_
-from sqlalchemy.ext.hybrid import Comparator
+from typing import TYPE_CHECKING
+
+from sqlalchemy import String, or_
+from sqlalchemy.ext.hybrid import Comparator, hybrid_property
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import literal
 from sqlalchemy.types import Text
 
-from .. import db
+from fin_models.db import Base, pk
+
+
+if TYPE_CHECKING:
+    from .country import Country
 
 
 class CurrencyNameComparator(Comparator):
@@ -26,25 +33,31 @@ class PluralComparator(Comparator):
         )
 
 
-class Currency(db.Model):
+class Currency(Base):
     class Meta:
         repr = ("id", "code", "name")
 
-    iso_code = db.Column(db.String(3), index=True, unique=True)  # ISO 4217
-    iso_name = db.Column(db.String(32), index=True, unique=True)  # ISO 4217
-    _name = db.Column(
-        "name", db.String(32), index=True, nullable=True, unique=True
+    id: Mapped[pk]
+
+    iso_code: Mapped[str] = mapped_column(String(3), index=True, unique=True)  # ISO 4217
+    iso_name: Mapped[str] = mapped_column(String(32), index=True, unique=True)  # ISO 4217
+    _name: Mapped[str] = mapped_column(
+        "name",
+        String(32),
+        index=True,
+        nullable=True,
+        unique=True,
     )  # common english name
-    _plural = db.Column("plural", db.String(32), nullable=True, unique=True)
-    symbol = db.Column(db.String(8), nullable=True)
+    _plural: Mapped[str] = mapped_column("plural", String(32), nullable=True, unique=True)
+    symbol: Mapped[str] = mapped_column(String(8), nullable=True)
 
-    countries = db.relationship("Country", back_populates="currency")
+    countries: Mapped[list["Country"]] = relationship(back_populates="currency")
 
-    @db.hybrid_property
+    @hybrid_property
     def code(self):
         return self.iso_code
 
-    @db.hybrid_property
+    @hybrid_property
     def name(self):
         return self._name or self.iso_name
 
@@ -56,7 +69,7 @@ class Currency(db.Model):
     def name(cls):
         return CurrencyNameComparator(cls)
 
-    @db.hybrid_property
+    @hybrid_property
     def plural(self):
         return self._plural or "{}s".format(self.name)
 

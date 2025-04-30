@@ -1,14 +1,25 @@
 from __future__ import annotations
 
-from .. import db
+from typing import TYPE_CHECKING
+
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base, pk
 
 
-class Sector(db.Model):
+if TYPE_CHECKING:
+    from .equity import Equity
+    from .industry import Industry
+
+
+class Sector(Base):
     class Meta:
         repr = ("id", "name")
 
-    name = db.Column(db.String(32), index=True, unique=True)
+    id: Mapped[pk]
+    name: Mapped[str] = mapped_column(String(32), index=True, unique=True)
 
-    equities = db.relationship("Equity", back_populates="sector")
+    equities: Mapped[list["Equity"]] = relationship(back_populates="sector")
 
-    industries = db.relationship("Industry", back_populates="sector")
+    industries: Mapped[list["Industry"]] = relationship(back_populates="sector")

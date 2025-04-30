@@ -1,11 +1,26 @@
 from __future__ import annotations
 
-from .. import db
-from ..enums import AssetType
+from typing import TYPE_CHECKING
+
+from sqlalchemy import ForeignKey
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base, pk
+
 from .asset_data_vendor import AssetDataVendor
 
 
-class Asset(db.Model):
+if TYPE_CHECKING:
+    from .country import Country
+    from .currency import Currency
+    from .data_vendor import DataVendor
+    from .exchange import Exchange
+    from .market import Market
+    from .watchlist_asset import WatchlistAsset
+
+
+class Asset(Base):
     """
     Base class for tradable assets. Should not be used directly.
     """
@@ -13,29 +28,34 @@ class Asset(db.Model):
     class Meta:
         repr = ("id", "type", "ticker")
 
-    type = db.Column(db.Enum(AssetType))  # polymorphic discriminator column
     __mapper_args__ = {
-        "polymorphic_on": type,
-        "polymorphic_identity": AssetType.Asset,
+        "polymorphic_on": "type",
+        "polymorphic_identity": "Asset",
     }
 
-    # canonical ticker
-    ticker = db.Column(db.String(16), index=True, unique=True)
+    id: Mapped[pk]
+    type: Mapped[str]  # polymorphic discriminator column
 
-    asset_data_vendors = db.relationship(
-        "AssetDataVendor", back_populates="asset", cascade="all, delete-orphan"
+    # canonical ticker
+    ticker: Mapped[str] = mapped_column(index=True, unique=True)
+
+    asset_data_vendors: Mapped[list["AssetDataVendor"]] = relationship(
+        back_populates="asset",
+        cascade="all, delete-orphan",
     )
-    data_vendors = db.association_proxy(
+    data_vendors: Mapped[list["DataVendor"]] = association_proxy(
         "asset_data_vendors",
         "data_vendor",
         creator=lambda data_vendor: AssetDataVendor(data_vendor=data_vendor),
     )
 
-    asset_watchlists = db.relationship("WatchlistAsset", back_populates="asset")
+    asset_watchlists: Mapped[list["WatchlistAsset"]] = relationship(
+        back_populates="asset"
+    )
 
-    market_id = db.foreign_key("Market")
-    market = db.relationship("Market", back_populates="assets")
+    market_id: Mapped[int] = mapped_column(ForeignKey("market.id"))
+    market: Mapped["Market"] = relationship(back_populates="assets")
 
-    country = db.association_proxy("market", "country")
-    currency = db.association_proxy("market", "currency")
-    exchange = db.association_proxy("market", "exchange")
+    country: Mapped["Country"] = association_proxy("market", "country")
+    currency: Mapped["Currency"] = association_proxy("market", "currency")
+    exchange: Mapped["Exchange"] = association_proxy("market", "exchange")

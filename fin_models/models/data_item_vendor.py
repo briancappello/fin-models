@@ -1,27 +1,33 @@
 from __future__ import annotations
 
-from .. import db
+from typing import TYPE_CHECKING
+
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base
 
 
-class DataItemVendor(db.Model):
+if TYPE_CHECKING:
+    from .data_item import DataItem
+    from .data_vendor import DataVendor
+
+
+class DataItemVendor(Base):
     """
     join table between DataItem and DataVendor
     """
 
-    class Meta:
-        pk = None
+    data_item_id: Mapped[int] = mapped_column(
+        ForeignKey("data_item.id"),
+        primary_key=True,
+    )
+    data_item: Mapped["DataItem"] = relationship(back_populates="data_item_vendors")
 
-    data_item_id = db.foreign_key("DataItem", primary_key=True)
-    data_item = db.relationship("DataItem", back_populates="data_item_vendors")
+    data_vendor_id: Mapped[int] = mapped_column(
+        ForeignKey("data_vendor.id"),
+        primary_key=True,
+    )
+    data_vendor: Mapped["DataVendor"] = relationship(back_populates="data_vendor_items")
 
-    data_vendor_id = db.foreign_key("DataVendor", primary_key=True)
-    data_vendor = db.relationship("DataVendor", back_populates="data_vendor_items")
-
-    priority = db.Column(db.Integer, nullable=True)
-
-    def __init__(self, data_item=None, data_vendor=None, priority=None, **kwargs):
-        super().__init__(priority=priority, **kwargs)
-        if data_item:
-            self.data_item = data_item
-        if data_vendor:
-            self.data_vendor = data_vendor
+    priority: Mapped[int | None]

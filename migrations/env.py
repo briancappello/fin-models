@@ -7,7 +7,7 @@ from sqlalchemy import engine_from_config, pool
 
 # FIXME
 from fin_models.config import Config
-from fin_models.db import Model
+from fin_models.db import Base
 from fin_models.models import *
 
 
@@ -20,7 +20,7 @@ config = context.config
 fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
-target_metadata = Model.metadata
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

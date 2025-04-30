@@ -1,16 +1,31 @@
 from __future__ import annotations
 
-from .. import db
+from typing import TYPE_CHECKING
+
+from sqlalchemy import String
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base, pk
+
 from .data_item_vendor import DataItemVendor
 
 
-class DataItem(db.Model):
-    key = db.Column(db.String(32))
-    update_frequency = db.Column(db.String(32))
-    update_at = db.Column(db.String(32))
+if TYPE_CHECKING:
+    from .data_vendor import DataVendor
 
-    data_item_vendors = db.relationship("DataItemVendor", back_populates="data_item")
-    data_vendors = db.association_proxy(
+
+class DataItem(Base):
+    id: Mapped[pk]
+
+    key: Mapped[str] = mapped_column(String(32))
+    update_frequency: Mapped[str] = mapped_column(String(32))
+    update_at: Mapped[str] = mapped_column(String(32))
+
+    data_item_vendors: Mapped[list["DataItemVendor"]] = relationship(
+        back_populates="data_item",
+    )
+    data_vendors: Mapped[list["DataVendor"]] = association_proxy(
         "data_item_vendors",
         "data_vendor",
         creator=lambda item: DataItemVendor(data_item=item),

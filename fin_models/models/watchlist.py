@@ -1,21 +1,35 @@
 from __future__ import annotations
 
-from .. import db
+from typing import TYPE_CHECKING
+
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base, pk
+
 from .watchlist_asset import WatchlistAsset
 
 
-class Watchlist(db.Model):
+if TYPE_CHECKING:
+    from .asset import Asset
+
+
+class Watchlist(Base):
     class Meta:
         repr = ("id", "name")
 
-    name = db.Column(db.String, unique=True, index=True)
+    id: Mapped[pk]
+    name: Mapped[str] = mapped_column(unique=True, index=True)
 
     # user_id = db.foreign_key('User')
-    # user = db.relationship('User', back_populates='watchlists')
+    # user = relationship('User', back_populates='watchlists')
 
-    watchlist_assets = db.relationship(
-        "WatchlistAsset", back_populates="watchlist", cascade="all, delete-orphan"
+    watchlist_assets: Mapped[list["WatchlistAsset"]] = relationship(
+        back_populates="watchlist",
+        cascade="all, delete-orphan",
     )
-    assets = db.association_proxy(
-        "watchlist_assets", "asset", creator=lambda asset: WatchlistAsset(asset=asset)
+    assets: Mapped[list["Asset"]] = association_proxy(
+        "watchlist_assets",
+        "asset",
+        creator=lambda asset: WatchlistAsset(asset=asset),
     )

@@ -1,18 +1,27 @@
 from __future__ import annotations
 
-from .. import db
+from typing import TYPE_CHECKING
+
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base
 
 
-class WatchlistAsset(db.Model):
-    asset_id = db.foreign_key("Asset", primary_key=True)
-    asset = db.relationship("Asset", back_populates="asset_watchlists")
+if TYPE_CHECKING:
+    from .asset import Asset
+    from .watchlist import Watchlist
 
-    watchlist_id = db.foreign_key("Watchlist", primary_key=True)
-    watchlist = db.relationship("Watchlist", back_populates="watchlist_assets")
 
-    def __init__(self, asset=None, watchlist=None, **kwargs):
-        super().__init__(**kwargs)
-        if asset is not None:
-            self.asset = asset
-        if watchlist is not None:
-            self.watchlist = watchlist
+class WatchlistAsset(Base):
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("asset.id"),
+        primary_key=True,
+    )
+    asset: Mapped["Asset"] = relationship(back_populates="asset_watchlists")
+
+    watchlist_id: Mapped[int] = mapped_column(
+        ForeignKey("watchlist.id"),
+        primary_key=True,
+    )
+    watchlist: Mapped["Watchlist"] = relationship(back_populates="watchlist_assets")

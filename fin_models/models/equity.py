@@ -1,9 +1,19 @@
 from __future__ import annotations
 
-from .. import db
-from ..enums import AssetType
+from typing import TYPE_CHECKING
+
+from sqlalchemy import ForeignKey, Text
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .asset import Asset
 from .equity_index import EquityIndex
+
+
+if TYPE_CHECKING:
+    from .index import Index
+    from .industry import Industry
+    from .sector import Sector
 
 
 class Equity(Asset):
@@ -11,24 +21,27 @@ class Equity(Asset):
         repr = ("id", "ticker")
 
     __mapper_args__ = {
-        "polymorphic_identity": AssetType.Equity,
+        "polymorphic_identity": "Equity",
     }
 
-    id = db.foreign_key("Asset", primary_key=True)
-    company_name = db.Column(db.String, index=True)
-    company_description = db.Column(db.Text, nullable=True)
+    id: Mapped[int] = mapped_column(ForeignKey("asset.id"), primary_key=True)
+    company_name: Mapped[str] = mapped_column(index=True)
+    company_description: Mapped[str | None] = mapped_column(Text)
 
-    equity_indexes = db.relationship(
-        "EquityIndex", back_populates="equity", cascade="all, delete-orphan"
+    equity_indexes: Mapped[list["EquityIndex"]] = relationship(
+        back_populates="equity",
+        cascade="all, delete-orphan",
     )
-    indexes = db.association_proxy(
-        "equity_indexes", "index", creator=lambda equity: EquityIndex(equity=equity)
+    indexes: Mapped[list["Index"]] = association_proxy(
+        "equity_indexes",
+        "index",
+        creator=lambda equity: EquityIndex(equity=equity),
     )
 
-    sector_id = db.foreign_key("Sector", nullable=True)
-    sector = db.relationship("Sector", back_populates="equities")
+    sector_id: Mapped[int | None] = mapped_column(ForeignKey("sector.id"))
+    sector: Mapped["Sector"] = relationship("Sector", back_populates="equities")
 
-    industry_id = db.foreign_key("Industry", nullable=True)
-    industry = db.relationship("Industry", back_populates="equities")
+    industry_id: Mapped[int | None] = mapped_column(ForeignKey("industry.id"))
+    industry: Mapped["Industry"] = relationship(back_populates="equities")
 
-    # active = db.Column(Boolean(name='active'), default=True)  # active == listed & trading
+    # active = mapped_column(Boolean(name='active'), default=True)  # active == listed & trading

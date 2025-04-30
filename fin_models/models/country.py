@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-from sqlalchemy import or_
-from sqlalchemy.ext.hybrid import Comparator
+from typing import TYPE_CHECKING
 
-from .. import db
+from sqlalchemy import ForeignKey, String, or_
+from sqlalchemy.ext.hybrid import Comparator, hybrid_property
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from fin_models.db import Base, pk
+
+
+if TYPE_CHECKING:
+    from .currency import Currency
+    from .market import Market
 
 
 class CountryCodeComparator(Comparator):
@@ -22,26 +30,47 @@ class CountryNameComparator(Comparator):
         )
 
 
-class Country(db.Model):
+class Country(Base):
     class Meta:
         repr = ("id", "code", "name")
 
-    iso_code = db.Column(db.String(2), index=True, unique=True)  # ISO 3166-1 alpha-2
-    iso_code3 = db.Column(db.String(3), index=True, unique=True)  # ISO 3166-1 alpha-3
-    iso_name = db.Column(
-        db.String(64), index=True, unique=True
+    id: Mapped[pk]
+
+    iso_code: Mapped[str] = mapped_column(
+        String(2),
+        index=True,
+        unique=True,
+    )  # ISO 3166-1 alpha-2
+    iso_code3: Mapped[str] = mapped_column(
+        String(3),
+        index=True,
+        unique=True,
+    )  # ISO 3166-1 alpha-3
+    iso_name: Mapped[str] = mapped_column(
+        String(64),
+        index=True,
+        unique=True,
     )  # official english short name (ISO 3166/MA)
-    _name = db.Column(
-        "name", db.String(64), index=True, nullable=True, unique=True
+    _name: Mapped[str] = mapped_column(
+        "name",
+        String(64),
+        index=True,
+        nullable=True,
+        unique=True,
     )  # common english name
-    _native_name = db.Column("native_name", db.String(64), nullable=True, unique=True)
+    _native_name: Mapped[str] = mapped_column(
+        "native_name",
+        String(64),
+        nullable=True,
+        unique=True,
+    )
 
-    currency_id = db.foreign_key("Currency")
-    currency = db.relationship("Currency", back_populates="countries")
+    currency_id: Mapped[int] = mapped_column(ForeignKey("currency.id"))
+    currency: Mapped["Currency"] = relationship(back_populates="countries")
 
-    markets = db.relationship("Market", back_populates="country")
+    markets: Mapped[list["Market"]] = relationship(back_populates="country")
 
-    @db.hybrid_property
+    @hybrid_property
     def code(self):
         return self.iso_code
 
@@ -49,7 +78,7 @@ class Country(db.Model):
     def code(cls):
         return CountryCodeComparator(cls)
 
-    @db.hybrid_property
+    @hybrid_property
     def name(self):
         return self._name or self.iso_name
 
@@ -61,7 +90,7 @@ class Country(db.Model):
     def name(cls):
         return CountryNameComparator(cls)
 
-    @db.hybrid_property
+    @hybrid_property
     def native_name(self):
         return self._native_name or self.name
 
