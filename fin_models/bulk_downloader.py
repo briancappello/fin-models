@@ -66,7 +66,7 @@ async def dl(
 
 async def dl_all(
     all_urls: list[str],
-    batch_size: int = 20,
+    batch_size: int = 200,
 ) -> tuple[list[AsyncResponse], list[AsyncResponse], list[AsyncException]]:
     successes = []
     errors = []

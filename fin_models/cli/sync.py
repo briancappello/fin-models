@@ -69,7 +69,9 @@ def sync_command(
         - on splits, handle refetching all stored frequencies
     """
     types = polygon.normalize_ticker_types(types)
-    end = to_ts(end, default=nyse.get_latest_trading_date_schedule()["market_close"])
+    end = to_ts(
+        end, default=nyse.get_latest_trading_date_schedule(include_extended=True)["post"]
+    )
     start = to_ts(
         start,
         default=end - timedelta(days=365 * Config.POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE),
@@ -119,22 +121,19 @@ def init_or_update(
             )
             for symbol in symbols
         ]
-        for url_batch in chunk(urls, 200):
-            successes, errors, exceptions = bulk_download(url_batch)
-            for resp in successes:
-                count += 1
-                df = polygon.json_to_df(resp.json)
-                m = polygon.HISTORY_URL_REGEX.match(resp.url)
-                symbol = m.groupdict()["symbol"]
-                store.write(symbol, freq, df)
-                print(f"{symbol} ({count} / {len(symbols)}): Added {len(df)} bars")
+        _bulk_download_and_store(urls, freq, progress=count, total=len(symbols))
 
     elif freq == Freq.min_1:
+        parallel_urls = []
         for symbol in symbols:
-            count += 1
             urls = polygon.make_minutely_urls(
                 symbol, freq=freq, start=symbol_start_dates[symbol], end=end
             )
+            if len(urls) == 1:
+                parallel_urls.append(urls[0])
+                continue
+
+            count += 1
             successes, errors, exceptions = bulk_download(urls)
 
             dataframes = []
@@ -148,3 +147,24 @@ def init_or_update(
                 df = pd.concat(dataframes).sort_index()
                 store.write(symbol, freq, df)
                 print(f"{symbol} ({count} / {len(symbols)}): Added {len(df)} bars")
+
+        if len(parallel_urls):
+            _bulk_download_and_store(
+                parallel_urls, freq, progress=count, total=len(symbols)
+            )
+
+
+def _bulk_download_and_store(
+    urls: list[str], freq: Freq, progress: int, total: int
+) -> int:
+    for url_batch in chunk(urls, 2000):
+        successes, errors, exceptions = bulk_download(url_batch)
+        for resp in successes:
+            progress += 1
+            df = polygon.json_to_df(resp.json)
+            m = polygon.HISTORY_URL_REGEX.match(resp.url)
+            symbol = m.groupdict()["symbol"]
+            store.write(symbol, freq, df)
+            print(f"{symbol} ({progress} / {total}): Added {len(df)} bars")
+
+    return progress
