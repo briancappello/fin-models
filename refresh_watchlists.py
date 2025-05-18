@@ -13,16 +13,16 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from fin_models import analysis_utils as au
+from fin_models.config import Config
 from fin_models.enums import Freq
-from fin_models.services import store
+from fin_models.services import nyse, store
 
 
 results_dir = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
+    Config.DATA_DIR,
     "analysis-results",
 )
 os.makedirs(results_dir, exist_ok=True)
-# end_date = "2023-05-12"
 
 
 def json_default(o):
@@ -32,34 +32,14 @@ def json_default(o):
         return float(o)
     elif isinstance(o, np.bool_):
         return bool(o)
-    elif isinstance(o, np.ndarray):
+    elif isinstance(o, (np.ndarray, pd.Index)):
         return o.tolist()
     raise TypeError(f"Unable to convert {o!r} ({type(o)} to JSON.")
 
 
-def signal(symbol: str, end_date: str):
-    no_result = dict(symbol=symbol)
-
-    df = store.get(symbol)
-    if df is None or df.empty:
-        return no_result
-
-    df = df.loc[:end_date]
-    if len(df) < 100:
-        return no_result
-
-    return dict(
-        symbol=symbol,
-        volume=df.Volume.iloc[-1],
-        median_volume=au.median_volume(df, num_bars=50),
-        volume_multiple_of_median=au.volume_multiple_of_median(df, num_bars=50),
-        is_expanding_volume=au.is_expanding_volume(df, num_bars=3),
-        close=df.Close.iloc[-1],
-        body_percent_change=au.pct_changes_bodies_df(df).iloc[-1],
-        crossed_sma_100=au.crossed_ma(df, ma=100),
-        crossed_sma_200=au.crossed_ma(df, ma=200),
-        bars_since_prior_high=au.bars_since_previous_high(df),
-    )
+def dump(obj, filepath):
+    with open(filepath, "w") as f:
+        json.dump(obj, f, default=json_default)
 
 
 def cached_results(
@@ -77,20 +57,19 @@ def cached_results(
                 print(f"corrupt json file: {cache_filename}")
                 results = []
     elif results:
-        with open(cache_filename, "w") as f:
-            json.dump(results, f, default=json_default)
+        dump(results, cache_filename)
 
     return pd.DataFrame.from_records(results)
 
 
-def calculate_for_date(end_date: str | None = None, fresh: bool = False) -> pd.DataFrame:
-    end_date = end_date or date.today().isoformat()
-    results_filename = os.path.join(results_dir, f"{end_date}_results.json")
+def calculate_for_date(dt: date | str, fresh: bool = False) -> pd.DataFrame:
+    dt = pd.Timestamp(dt).date().isoformat()
+    results_filename = os.path.join(results_dir, f"{dt}_results.json")
 
     df = cached_results(cache_filename=results_filename, fresh=fresh)
     if df.empty:
         fn_calls = [
-            delayed(signal)(symbol=symbol, end_date=end_date)
+            delayed(au.signal)(symbol=symbol, dt=dt)
             for symbol in store.symbols(freq=Freq.day)
         ]
 
@@ -106,12 +85,38 @@ def calculate_for_date(end_date: str | None = None, fresh: bool = False) -> pd.D
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--date", type=date.isoformat)
+    parser.add_argument("--date", type=date.fromisoformat)
     parser.add_argument("--fresh", action="store_true")
     args = parser.parse_args()
 
-    df = calculate_for_date(args.date, fresh=args.fresh)
-    filter1 = df["crossed_sma_100"] & (df["bars_since_prior_high"] > 20)
-    filter2 = df["volume_multiple_of_median"] > 3
+    dt = args.date or nyse.get_latest_trading_date()
+    print(f"Calculating signals for {dt!r}")
 
-    print(df[filter2])
+    df = calculate_for_date(dt, fresh=args.fresh)
+
+    crossed_sma100_filter = df["crossed_sma_100"] & (df["bars_since_prior_high"] > 20)
+
+    vol_multiple_of_median_filter = (df["volume_multiple_of_median"] > 3) & (
+        df["median_volume"] > 1_000
+    )
+    vol_multiple_of_median = df[vol_multiple_of_median_filter][
+        "volume_multiple_of_median"
+    ].sort_values(ascending=False)
+
+    max_gainers_filter = df["pct_change"] > 10
+    max_gainers = df[max_gainers_filter]["pct_change"].sort_values(ascending=False)
+
+    dump(
+        dict(
+            max_gainers={
+                "label": "Max Gainers",
+                "symbols": max_gainers.index,
+            },
+            vol_multiple_of_median={
+                "label": "Vol Multiple Of Median",
+                "symbols": vol_multiple_of_median.index,
+            },
+        ),
+        Config.JSON_WATCHLISTS_PATH,
+    )
+    print(max_gainers)

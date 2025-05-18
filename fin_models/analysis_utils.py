@@ -6,6 +6,9 @@ import talib as ta
 
 from scipy.signal import argrelextrema
 
+from fin_models.enums import Freq
+from fin_models.services import store
+
 
 """
 s = df.some_bool_col
@@ -71,6 +74,10 @@ def macd_divergence(df: pd.DataFrame):
     right side, macd should be above the signal
     left side, both values should be lower than signal on the right
     """
+
+
+def pct_change(close: float, prior_close: float) -> float:
+    return ((close - prior_close) / prior_close) * 100
 
 
 def pct_changes_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -275,3 +282,37 @@ def local_min_max(df, num_periods=5):
         argrelextrema(df.Close.values, np.greater_equal, order=num_periods)
     ]
     return mins, maxs
+
+
+def signal(symbol: str, dt: str, freq: Freq = Freq.day):
+    no_result = dict(symbol=symbol)
+
+    df = store.get(symbol, freq=freq)
+    if df is None or df.empty:
+        return no_result
+
+    df = df.loc[:dt]
+    if len(df) < 100:
+        return no_result
+
+    return dict(
+        symbol=symbol,
+        prev_open=df.Open.iloc[-2],
+        prev_high=df.High.iloc[-2],
+        prev_low=df.Low.iloc[-2],
+        prev_close=df.Close.iloc[-2],
+        prev_volume=df.Volume.iloc[-2],
+        day_open=df.Open.iloc[-1],
+        day_high=df.High.iloc[-1],
+        day_low=df.Low.iloc[-1],
+        day_close=df.Close.iloc[-1],
+        day_volume=df.Volume.iloc[-1],
+        median_volume=median_volume(df, num_bars=50),
+        volume_multiple_of_median=volume_multiple_of_median(df, num_bars=50),
+        is_expanding_volume=is_expanding_volume(df, num_bars=3),
+        pct_change=pct_change(df.Close.iloc[-1], df.Close.iloc[-2]),
+        body_percent_change=pct_change(df.Close.iloc[-1], df.Open.iloc[-1]),
+        crossed_sma_100=crossed_ma(df, ma=100),
+        crossed_sma_200=crossed_ma(df, ma=200),
+        bars_since_prior_high=bars_since_previous_high(df),
+    )
