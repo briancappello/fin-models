@@ -12,7 +12,7 @@ import requests
 from requests.exceptions import HTTPError
 
 from fin_models.config import Config
-from fin_models.dataclasses import CompanyDetails
+from fin_models.data_classes import CompanyDetails
 from fin_models.date_utils import DateType, isodate, to_ts
 from fin_models.enums import Enum, Freq
 from fin_models.serializers import CompanyDetailsSerializer

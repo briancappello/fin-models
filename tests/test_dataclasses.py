@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from fin_models.dataclasses import HistoricalMetadata
+from fin_models.data_classes import HistoricalMetadata
 from fin_models.enums import Freq
 
 

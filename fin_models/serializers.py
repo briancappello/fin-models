@@ -6,7 +6,7 @@ import pandas as pd
 
 from marshmallow import Schema, fields, post_load
 
-from fin_models.dataclasses import Address, CompanyDetails, HistoricalMetadata
+from fin_models.data_classes import Address, CompanyDetails, HistoricalMetadata
 from fin_models.enums import Freq
 
 

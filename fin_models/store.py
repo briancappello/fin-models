@@ -8,7 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 from fin_models.config import Config
-from fin_models.dataclasses import CompanyDetails, HistoricalMetadata
+from fin_models.data_classes import CompanyDetails, HistoricalMetadata
 from fin_models.enums import Freq
 from fin_models.serializers import (
     CompanyDetailsSerializer,
@@ -107,7 +107,7 @@ class Store:
             )
         )
 
-    def write(self, symbol: str, freq: Freq, bars: pd.DataFrame) -> pd.DataFrame:
+    def write(self, symbol: str, freq: Freq, bars: pd.DataFrame) -> pd.DataFrame | None:
         """
         Write or append bars to the store for a given symbol and frequency.
         """
