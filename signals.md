@@ -128,3 +128,46 @@ EDUC
 WW
 XELB
 HRTX
+
+# SEPT 24, 2024
+LX
+- high expanding volume
+- new high in N days
+- bbands expanding
+- crossed 100/200 MA
+- slope of MAs turning positive
+- gappy action on non-gappy history
+
+Dec 30
+NXU at 5:25AM EST
+WATT at 4:25AM EST
+
+Jan 2
+NITO at 8:05AM EST
+
+# April 2, 2025
+ABVC
+OCG
+RSLS
+CNTM (?)
+AREB
+APVO
+TTEC
+TCRT
+VMAR
+
+# April 3, 2025
+APVO
+TCRT
+
+# April 4, 2025
+AREB
+LOCL
+FORD
+
+# CGC (date unknown)
+    - time below sma 100
+    - abnormal volume
+    - contracting bbands
+    - MACD divergence
+    - higher lows price action, triangle formation, breakout 8/30
