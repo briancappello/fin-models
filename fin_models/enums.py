@@ -92,6 +92,11 @@ class OrderedEnum(Enum, metaclass=OrderedEnumMeta):
         return self._member2index_map_[self] <= self._member2index_map_[other]
 
 
+class AssetType(Enum):
+    Asset = 'Asset'
+    Equity = 'Equity'
+
+
 # https://pandas.pydata.org/docs/user_guide/timeseries.html#period-aliases
 class Freq(OrderedEnum):
     min_1 = "1min"
