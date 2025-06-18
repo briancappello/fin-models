@@ -93,8 +93,8 @@ class OrderedEnum(Enum, metaclass=OrderedEnumMeta):
 
 
 class AssetType(Enum):
-    Asset = 'Asset'
-    Equity = 'Equity'
+    Asset = "Asset"
+    Equity = "Equity"
 
 
 # https://pandas.pydata.org/docs/user_guide/timeseries.html#period-aliases

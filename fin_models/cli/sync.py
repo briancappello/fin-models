@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 
-from datetime import timedelta
+from collections import defaultdict
+from datetime import date, timedelta
 
 import click
 import pandas as pd
+
+from joblib import Parallel, delayed
 
 from fin_models.bulk_downloader import bulk_download
 from fin_models.config import Config
@@ -68,7 +72,6 @@ def sync_command(
         - how to handle delisted symbols?
         - on splits, handle refetching all stored frequencies
     """
-    types = polygon.normalize_ticker_types(types)
     end = to_ts(
         end, default=nyse.get_latest_trading_date_schedule(include_extended=True)["post"]
     )
@@ -76,17 +79,24 @@ def sync_command(
         start,
         default=end - timedelta(days=365 * Config.POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE),
     )
+    freq = {"minute": Freq.min_1, "day": Freq.day}[freq]
 
     if symbols:
         symbols = [symbol.strip().upper() for symbol in symbols.split(",")]
     else:
-        symbols = polygon.get_symbols(types)
+        # types = polygon.normalize_ticker_types(types)
+        # symbols = polygon.get_symbols(types)
+        symbols = []
+        for symbol in store.get_symbols():
+            hm = store.get_historical_metadata(symbol, freq=freq)
+            if hm is None or hm.latest_bar_utc.date() != nyse.get_latest_trading_date():
+                symbols.append(symbol)
 
     init_or_update(
         symbols=symbols,
         start=start,
         end=end,
-        freq={"minute": Freq.min_1, "day": Freq.day}[freq],
+        freq=freq,
     )
 
 
@@ -124,39 +134,38 @@ def init_or_update(
         _bulk_download_and_store(urls, freq, progress=count, total=len(symbols))
 
     elif freq == Freq.min_1:
-        parallel_urls = []
+        parallel_urls = {}
         for symbol in symbols:
             urls = polygon.make_minutely_urls(
                 symbol, freq=freq, start=symbol_start_dates[symbol], end=end
             )
-            if len(urls) == 1:
-                parallel_urls.append(urls[0])
-                continue
+            parallel_urls[symbol] = urls
 
-            count += 1
-            successes, errors, exceptions = bulk_download(urls)
-
-            dataframes = []
-            for r in successes:
-                try:
-                    dataframes.append(polygon.json_to_df(r.json))
-                except json.JSONDecodeError:
-                    break
-
-            if dataframes and len(dataframes) == len(successes):
-                df = pd.concat(dataframes).sort_index()
-                store.write(symbol, freq, df)
-                print(f"{symbol} ({count} / {len(symbols)}): Added {len(df)} bars")
-
-        if len(parallel_urls):
-            _bulk_download_and_store(
-                parallel_urls, freq, progress=count, total=len(symbols)
-            )
+        errored_symbols = {k: 0 for k in parallel_urls}
+        while errored_symbols:
+            errored = [
+                symbol
+                for symbol in Parallel(
+                    n_jobs=multiprocessing.cpu_count() * 4, verbose=10
+                )(
+                    delayed(_multicpu_download_and_parse)(urls)
+                    for symbol, urls in parallel_urls.items()
+                    if errored_symbols.get(symbol, 3) < 3
+                )
+                if symbol
+            ]
+            for errored_symbol in errored:
+                errored_symbols[errored_symbol] += 1
+            for not_errored in set(parallel_urls) - set(errored):
+                errored_symbols.pop(not_errored, None)
 
 
 def _bulk_download_and_store(
-    urls: list[str], freq: Freq, progress: int, total: int
-) -> int:
+    urls: list[str],
+    freq: Freq,
+    progress: int,
+    total: int,
+):
     for url_batch in chunk(urls, 2000):
         successes, errors, exceptions = bulk_download(url_batch)
         for resp in successes:
@@ -167,4 +176,72 @@ def _bulk_download_and_store(
             store.write(symbol, freq, df)
             print(f"{symbol} ({progress} / {total}): Added {len(df)} bars")
 
-    return progress
+
+def _multicpu_download_and_parse(urls: list[str]):
+    m = polygon.HISTORY_URL_REGEX.match(urls[0]).groupdict()
+    symbol = m["symbol"]
+    timeframe = m["timeframe"]
+    freq = {"minute": Freq.min_1, "day": Freq.day}[timeframe]
+
+    print(f"Downloading {timeframe} data for {symbol}")
+    successes, errors, exceptions = bulk_download(urls)
+
+    if errors or exceptions:
+        print(f"Encountered errors downloading {symbol}")
+        return symbol
+
+    dataframes = []
+    for resp in successes:
+        df = polygon.json_to_df(resp.json)
+        dataframes.append(df)
+
+    df = pd.concat(dataframes).sort_index()
+    try:
+        print(f"Saving {timeframe} data for {symbol} ({len(df)} bars)")
+        store.write(symbol, freq, df)
+    except:  # noqa
+        store._delete_freq(symbol, freq)
+        return symbol
+
+    return None
+
+
+def _flex_bulk_download_and_store(
+    urls_by_symbol: dict[str, list[str]],
+    freq: Freq,
+):
+    batches = []
+    batch = []
+    for symbol, urls in urls_by_symbol.items():
+        if (len(batch) + len(urls)) < 2000:
+            batch.extend(urls)
+        else:
+            batches.append(batch)
+            batch = urls
+    if batch:
+        batches.append(batch)
+
+    progress = 0
+    for url_batch in batches:
+        print(f"Downloading a batch of {len(url_batch)} URLs")
+        successes, errors, exceptions = bulk_download(url_batch)
+
+        if errors or exceptions:
+            raise RuntimeError(errors + exceptions)
+
+        # FIXME: this is by far the most time consuming part
+        print("Parsing the responses")
+        dataframes_by_symbol = defaultdict(list)
+        for resp in successes:
+            df = polygon.json_to_df(resp.json)
+            m = polygon.HISTORY_URL_REGEX.match(resp.url)
+            symbol = m.groupdict()["symbol"]
+            dataframes_by_symbol[symbol].append(df)
+
+        for symbol, dataframes in dataframes_by_symbol.items():
+            progress += 1
+            df = pd.concat(dataframes).sort_index()
+            print(
+                f"{progress}/{len(urls_by_symbol)}: writing {symbol} (added {len(df)} bars)"
+            )
+            store.write(symbol, freq, df)
