@@ -30,7 +30,7 @@ class CustomStrategy(Strategy):
         super().__init__(dt, symbols, trading_client)
         self.stats = {}
         for symbol in symbols:
-            self.stats[symbol] = au.signal(symbol, dt=dt.isoformat(), freq=Freq.day)
+            self.stats[symbol] = au.signal(symbol, freq=Freq.day, dt=dt.isoformat())
         self.signals = []
         self.premarket_vol = defaultdict(float)
 

@@ -53,6 +53,7 @@ class CompanyDetails:
 @dataclass(kw_only=True)
 class HistoricalMetadata:
     freq: Freq
+    latest_sync_utc: pd.Timestamp
     first_bar_utc: pd.Timestamp
     latest_bar_utc: pd.Timestamp
     Open: float
@@ -61,6 +62,18 @@ class HistoricalMetadata:
     Close: float
     Volume: float
     timezone: str = "America/New_York"
+
+    @property
+    def latest_sync_utc(self) -> pd.Timestamp:
+        return self._latest_sync_utc
+
+    @latest_sync_utc.setter
+    def latest_sync_utc(self, value: pd.Timestamp | datetime | str) -> None:
+        self._latest_sync_utc = pd.Timestamp(value).astimezone("UTC")
+
+    @property
+    def latest_sync_dt(self) -> pd.Timestamp:
+        return self.latest_sync_utc.astimezone(self.timezone)
 
     @property
     def first_bar_utc(self) -> pd.Timestamp:

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -62,14 +63,18 @@ class Store:
             return CompanyDetailsSerializer().loads(f.read())
 
     def get_historical_metadata(
-        self, symbol: str, freq: Freq
+        self,
+        symbol: str,
+        freq: Freq,
     ) -> HistoricalMetadata | None:
         filepath = self._historical_metadata_path(symbol, freq)
         if not os.path.exists(filepath):
             return None
 
         with open(filepath) as f:
-            return HistoricalMetadataSerializer().loads(f.read())
+            data: dict = json.loads(f.read())
+            data.setdefault("latest_sync_utc", datetime.now(tz=timezone.utc))
+            return HistoricalMetadataSerializer().load(data)
 
     def get_latest_dt(self, symbol: str, freq: Freq) -> datetime | None:
         data = self.get_historical_metadata(symbol, freq)
@@ -170,7 +175,10 @@ class Store:
             f.write(CompanyDetailsSerializer().dumps(data))
 
     def _write_historical_metadata(
-        self, symbol: str, freq: Freq, df: pd.DataFrame
+        self,
+        symbol: str,
+        freq: Freq,
+        df: pd.DataFrame,
     ) -> HistoricalMetadata | None:
         if df is None or df.empty:
             return
@@ -178,6 +186,7 @@ class Store:
         bar = df.iloc[-1]
         data = HistoricalMetadata(
             freq=freq,
+            latest_sync_utc=datetime.now(tz=timezone.utc),  # type: ignore
             first_bar_utc=df.iloc[0].name,  # type: ignore
             latest_bar_utc=bar.name,  # type: ignore
             Open=bar.Open,
