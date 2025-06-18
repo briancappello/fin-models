@@ -60,8 +60,8 @@ class TestEmptyStore:
 @pytest.mark.parametrize("freq", list(Freq))
 class TestEmptyStoreWithFreq:
     def test_no_symbols(self, store, freq):
-        assert store.symbols() == []
-        assert store.symbols(freq) == []
+        assert store.get_symbols() == []
+        assert store.get_symbols(freq) == []
 
     def test_has_returns_false(self, store, freq):
         assert store.has("AMD", freq) is False
@@ -84,28 +84,28 @@ class TestStoreWithData:
         symbols = ["AMD", "INTC", "NVDA"]
         for symbol in symbols:
             os.makedirs(os.path.join(store._root_dir, symbol))
-        assert store.symbols() == symbols
+        assert store.get_symbols() == symbols
 
         for freq in Freq:
-            assert store.symbols(freq) == []
+            assert store.get_symbols(freq) == []
 
     def test_symbols_with_freq(self, full_store):
         symbols = ["AMD", "INTC", "NVDA"]
         frequencies_with_data = [Freq.min_1, Freq.day]
         for freq in frequencies_with_data:
-            assert full_store.symbols(freq) == symbols
+            assert full_store.get_symbols(freq) == symbols
 
         for freq in [f for f in Freq if f not in frequencies_with_data]:
-            assert full_store.symbols(freq) == []
+            assert full_store.get_symbols(freq) == []
 
     def test_has_freq(self, full_store):
         frequencies_with_data = [Freq.min_1, Freq.day]
         for freq in frequencies_with_data:
-            for symbol in full_store.symbols(freq):
+            for symbol in full_store.get_symbols(freq):
                 assert full_store.has_freq(symbol, freq)
 
         for freq in [f for f in Freq if f not in frequencies_with_data]:
-            for symbol in full_store.symbols(freq):
+            for symbol in full_store.get_symbols(freq):
                 assert not full_store.has_freq(symbol, freq)
 
     def test_get_source_freq(self, full_store):
@@ -123,13 +123,13 @@ class TestStoreWithData:
 
     def test_get(self, full_store):
         for freq in [Freq.min_1, Freq.day]:
-            for symbol in full_store.symbols(freq):
+            for symbol in full_store.get_symbols(freq):
                 expected = load_data(symbol, freq)
                 df = full_store.get(symbol, freq)
                 assert_frame_equal(df, expected)
 
     def test_agg(self):
-        pass
+        pass  # FIXME
 
     def test_write(self, store):
         expected = load_data("AMD", Freq.day)

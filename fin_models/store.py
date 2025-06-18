@@ -89,7 +89,7 @@ class Store:
         """
         return os.path.exists(self._path(symbol, freq))
 
-    def symbols(self, freq: Freq | None = None) -> list[str]:
+    def get_symbols(self, freq: Freq | None = None) -> list[str]:
         """
         Get a list of all ticker symbols in the store.
         """
