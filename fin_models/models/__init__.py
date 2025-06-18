@@ -13,8 +13,11 @@ from .exchange import Exchange
 from .index import Index
 from .index_data_vendor import IndexDataVendor
 from .industry import Industry
+
+from .intraday import Intraday
 from .market import Market
 from .sector import Sector
+from .stats import Stats
 from .watchlist import Watchlist
 from .watchlist_asset import WatchlistAsset
 
