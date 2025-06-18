@@ -284,19 +284,26 @@ def local_min_max(df, num_periods=5):
     return mins, maxs
 
 
-def signal(symbol: str, dt: str, freq: Freq = Freq.day):
+def signal(
+    symbol: str,
+    freq: Freq = Freq.day,
+    dt: str | None = None,
+) -> dict:
     no_result = dict(symbol=symbol)
 
     df = store.get(symbol, freq=freq)
     if df is None or df.empty:
         return no_result
 
-    df = df.loc[:dt]
+    if dt is not None:
+        df = df.loc[:dt]
+
     if len(df) < 100:
         return no_result
 
     return dict(
         symbol=symbol,
+        day=df.index[-1].date(),
         prev_open=df.Open.iloc[-2],
         prev_high=df.High.iloc[-2],
         prev_low=df.Low.iloc[-2],
