@@ -9,6 +9,79 @@ from fin_models.enums import Freq
 
 
 @dataclass(kw_only=True)
+class Bar:
+    Epoch: pd.Timestamp  # start ts of bar
+    Open: float
+    High: float
+    Low: float
+    Close: float
+    Volume: int | float
+    freq: Freq | None = None
+    symbol: str | None = None
+    VWAP: float | None = None
+    EpochClose: pd.Timestamp | None = None  # end ts of bar
+
+    @classmethod
+    def from_ws_msg(cls, msg: dict) -> "Bar":
+        try:
+            return cls(
+                freq=dict(AM=Freq.min_1)[msg["ev"]],
+                symbol=msg["sym"],
+                Epoch=pd.Timestamp(msg["s"] * 1_000_000, tz="UTC").tz_convert(
+                    "America/New_York"
+                ),
+                EpochClose=pd.Timestamp(msg["e"] * 1_000_000, tz="UTC").tz_convert(
+                    "America/New_York"
+                ),
+                Open=msg["o"],
+                High=msg["h"],
+                Low=msg["l"],
+                Close=msg["c"],
+                Volume=int(msg["v"]),
+                VWAP=msg["vw"],
+            )
+        except Exception as e:
+            print(msg)
+            raise e
+
+    @classmethod
+    def from_series(
+        cls,
+        bar: pd.Series,
+        symbol: str | None = None,
+        freq: Freq | None = None,
+    ) -> "Bar":
+        return cls(
+            freq=freq,
+            symbol=symbol,
+            Epoch=bar.name,
+            Open=bar.Open,
+            High=bar.High,
+            Low=bar.Low,
+            Close=bar.Close,
+            Volume=bar.Volume,
+        )
+
+    def to_series(self):
+        return pd.Series(
+            data={
+                "Open": self.Open,
+                "High": self.High,
+                "Low": self.Low,
+                "Close": self.Close,
+                "Volume": self.Volume,
+            },
+            name=self.Epoch,
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self) -> str:
+        return f"Bar(symbol={self.symbol}, freq={self.freq}, ts={self.Epoch.isoformat()}, O={self.Open}, H={self.High}, L={self.Low}, C={self.Close}, V={self.Volume})"
+
+
+@dataclass(kw_only=True)
 class Address:
     address1: str
     city: str

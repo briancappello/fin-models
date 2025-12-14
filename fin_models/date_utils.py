@@ -10,7 +10,7 @@ import pandas as pd
 DateType = Union[date, datetime, pd.Timestamp]
 
 UTC = timezone.utc
-EASTERN_TZ = ZoneInfo("America/New_York")
+EST = ZoneInfo("America/New_York")
 
 
 def utcnow() -> datetime:
@@ -27,7 +27,7 @@ def ts_utcnow() -> pd.Timestamp:
 def to_ts(
     dt: DateType | str | None,
     default: DateType | str = "now",
-    _naive_assumed_tz=EASTERN_TZ,
+    _naive_assumed_tz: ZoneInfo = EST,
 ) -> pd.Timestamp:
     """
     Returns input converted to pd.Timestamp with timezone UTC.

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from fin_models.trading.client import TradingClient
-from fin_models.ws.data_classes import Bar
+from fin_models.data_classes import Bar
+from fin_models.trading.trading_client import TradingClient
 
 
 class Strategy:

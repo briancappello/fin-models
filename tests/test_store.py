@@ -109,7 +109,7 @@ class TestStoreWithData:
                 assert not full_store.has_freq(symbol, freq)
 
     def test_get_source_freq(self, full_store):
-        min_1_source_frequencies = Freq[: Freq.day]
+        min_1_source_frequencies = Freq[Freq.min_1 : Freq.day]
         day_source_frequencies = Freq[Freq.day :]
 
         for freq in min_1_source_frequencies:
@@ -118,7 +118,7 @@ class TestStoreWithData:
             assert full_store._get_source_freq("AMD", freq) == Freq.day
 
         full_store._delete_freq("AMD", Freq.day)
-        for freq in Freq:
+        for freq in Freq[Freq.min_1 :]:
             assert full_store._get_source_freq("AMD", freq) == Freq.min_1
 
     def test_get(self, full_store):

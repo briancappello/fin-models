@@ -72,54 +72,57 @@ def sync_command(
         - how to handle delisted symbols?
         - on splits, handle refetching all stored frequencies
     """
-    end = to_ts(
-        end, default=nyse.get_latest_trading_date_schedule(include_extended=True)["post"]
-    )
-    start = to_ts(
-        start,
-        default=end - timedelta(days=365 * Config.POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE),
-    )
     freq = {"minute": Freq.min_1, "day": Freq.day}[freq]
 
     if symbols:
         symbols = [symbol.strip().upper() for symbol in symbols.split(",")]
     else:
-        # types = polygon.normalize_ticker_types(types)
-        # symbols = polygon.get_symbols(types)
-        symbols = []
-        for symbol in store.get_symbols():
-            hm = store.get_historical_metadata(symbol, freq=freq)
-            if hm is None or hm.latest_bar_utc.date() != nyse.get_latest_trading_date():
-                symbols.append(symbol)
+        types = polygon.normalize_ticker_types(types)
+        symbols = polygon.get_symbols(types)
+        # symbols = []
+        # for symbol in store.get_symbols():
+        #     hm = store.get_historical_metadata(symbol, freq=freq)
+        #     if hm is None or hm.latest_bar_utc.date() != nyse.get_latest_trading_date():
+        #         symbols.append(symbol)
 
     init_or_update(
         symbols=symbols,
+        freq=freq,
         start=start,
         end=end,
-        freq=freq,
     )
 
 
 def init_or_update(
     symbols: list[str],
-    start: DateType,
-    end: DateType,
     freq: Freq,
+    start: DateType | None = None,
+    end: DateType | None = None,
 ):
     if freq not in {Freq.min_1, Freq.day}:
         raise NotImplementedError(
             "Data fetching is currently only implemented for Freq.min_1 and Freq.day"
         )
 
-    for split in polygon.get_splits(dt=end):
+    end_ts = to_ts(
+        end,
+        default=nyse.get_latest_trading_date_schedule(include_extended=True)["post"],
+    )
+    start_ts = to_ts(
+        start,
+        default=end_ts
+        - pd.Timedelta(days=365 * Config.POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE),
+    )
+
+    for split in polygon.get_splits(dt=end_ts):
         # FIXME handle re-fetching all stored frequencies?
         store._delete_all(symbol=split["ticker"])
 
     symbol_start_dates = {}
     for symbol in symbols:
         historical_metadata = store.get_historical_metadata(symbol, freq)
-        if historical_metadata is None:
-            symbol_start_dates[symbol] = start
+        if start or historical_metadata is None:
+            symbol_start_dates[symbol] = start_ts
         else:
             symbol_start_dates[symbol] = historical_metadata.latest_bar_utc
 
@@ -188,6 +191,8 @@ def _multicpu_download_and_parse(urls: list[str]):
 
     if errors or exceptions:
         print(f"Encountered errors downloading {symbol}")
+        wtf = errors or exceptions
+        print(wtf[0].json)
         return symbol
 
     dataframes = []

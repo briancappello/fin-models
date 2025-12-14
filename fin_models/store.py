@@ -5,11 +5,13 @@ import os
 import shutil
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from fin_models.config import Config
 from fin_models.data_classes import CompanyDetails, HistoricalMetadata
+from fin_models.date_utils import EST, DateType
 from fin_models.enums import Freq
 from fin_models.serializers import (
     CompanyDetailsSerializer,
@@ -36,6 +38,8 @@ class Store:
         self,
         symbol: str,
         freq: Freq = Freq.day,
+        start_dt: DateType | str | None = None,
+        end_dt: DateType | str | None = None,
         columns=("Open", "High", "Low", "Close", "Volume"),
     ) -> pd.DataFrame | None:
         """
@@ -50,9 +54,30 @@ class Store:
             return None
 
         df = df[list(columns)]
-        if source_freq == freq or df.empty:
+        if df.empty:
             return df
-        return self.agg(df, freq)
+        elif source_freq != freq:
+            df = self.agg(df, freq)
+
+        start_ts = None
+        end_ts = None
+        if start_dt:
+            start_ts = pd.Timestamp(start_dt)
+            if start_ts.tzinfo is None:
+                start_ts = start_ts.tz_localize(EST)
+        if end_dt:
+            end_ts = pd.Timestamp(end_dt)
+            if end_ts.tzinfo is None:
+                end_ts = end_ts.tz_localize(EST)
+
+        if start_ts and end_ts:
+            return df.loc[start_ts:end_ts]
+        elif start_ts:
+            return df.loc[start_ts:]
+        elif end_ts:
+            return df.loc[:end_ts]
+
+        return df
 
     def get_company_details(self, symbol: str) -> CompanyDetails | None:
         filepath = self._company_details_path(symbol)
@@ -117,13 +142,13 @@ class Store:
         Write or append bars to the store for a given symbol and frequency.
         """
         if bars.empty:
-            return self.get(symbol, freq)
+            return self.get(symbol, freq=freq)
 
         if not self.has_freq(symbol, freq):
             self._write(symbol, freq, bars)
             return bars
 
-        old = self.get(symbol, freq)
+        old = self.get(symbol, freq=freq)
         index_intersection = old.index.intersection(bars.index, sort=True)
         if index_intersection.empty:
             new_df = pd.concat([old, bars])

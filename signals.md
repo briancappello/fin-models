@@ -171,3 +171,10 @@ FORD
     - contracting bbands
     - MACD divergence
     - higher lows price action, triangle formation, breakout 8/30
+
+# June 30th, 2025
+MPU (bounce off 100sma, cross 200sma, high volume - also March 18th, bounce off 50c)
+
+# July 28th, 2025
+NVNI 4:05-4:09pm (bounce off 100sma, big day already)
+STAI 4:05pm

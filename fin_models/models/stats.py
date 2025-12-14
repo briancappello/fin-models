@@ -10,6 +10,8 @@ class Stats(db.Model):
     class Meta:
         repr = ("id", "symbol", "day")
         unique_together = ("symbol", "day", "freq")
+        created_at = None
+        updated_at = None
 
     symbol = db.Column(db.String, index=True, nullable=False)
     day = db.Column(db.Date, index=True, nullable=False)

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from alpaca.trading.client import TradingClient as AlpacaTradingClient
 
-from fin_models.trading.client import TradingClient
-from fin_models.trading.private_alpaca import TradingClient as PrivateTradingClient
+from fin_models.trading.local_trading_client import TradingClient as LocalTradingClient
+from fin_models.trading.trading_client import TradingClient
 
 
 if __name__ == "__main__":
-    client = TradingClient(PrivateTradingClient, paper=False)
+    client = TradingClient(LocalTradingClient, paper=False)
 
     print(client.get_asset("nvda"))

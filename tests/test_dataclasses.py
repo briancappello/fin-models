@@ -14,6 +14,7 @@ class TestHistoricalMetadata:
             freq=Freq.day,
             first_bar_utc=datetime.now(timezone.utc),
             latest_bar_utc=datetime.now(timezone.utc),
+            latest_sync_utc=datetime.now(timezone.utc),
             Open=1,
             High=2,
             Low=3,

@@ -19,7 +19,7 @@ WS_HOST = "localhost"
 WS_PORT = 8765
 
 
-class Server:
+class DataServer:
     def __init__(self, start_date: date | None = None):
         self.start_date = start_date if start_date else nyse.get_latest_trading_date()
         self._authed = False
@@ -55,6 +55,7 @@ class Server:
                     polygon_tf, symbol = sub.split(".")
                     if polygon_tf != "AM":
                         continue
+
                     dataframes[symbol] = store.get(symbol, freq=Freq.min_1).loc[
                         self.start_date.isoformat()
                     ]
@@ -96,7 +97,7 @@ class Server:
                                     (ts.timestamp() + 60) * 1000
                                 ),  # end of bar in unix milliseconds
                             )
-                            await ws.send(json.dumps(msg))
+                            await ws.send(json.dumps([msg]))
 
 
 async def main():
@@ -104,7 +105,7 @@ async def main():
     parser.add_argument("--date", type=date.fromisoformat)
     args = parser.parse_args()
 
-    server = Server(start_date=args.date)
+    server = DataServer(start_date=args.date)
     async with ws_serve(server, host=WS_HOST, port=WS_PORT) as ws_server:
         print(f"Serving forever on ws://{WS_HOST}:{WS_PORT}")
         await ws_server.serve_forever()

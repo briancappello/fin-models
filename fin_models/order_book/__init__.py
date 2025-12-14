@@ -21,8 +21,10 @@ from alpaca.trading.requests import (
     OrderRequest as AlpacaOrderRequest,
 )
 
+from fin_models.date_utils import EST, to_ts
 
-def _to_enum(enum_class, value):
+
+def to_enum(enum_class, value):
     try:
         return enum_class[value]
     except KeyError:
@@ -98,11 +100,11 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         ts: pd.Timestamp | datetime | None = None,
     ) -> OrderRequest:
         request = MarketOrderRequest(
-            side=_to_enum(OrderSide, side),
+            side=to_enum(OrderSide, side),
             qty=qty,
             symbol=symbol,
             extended_hours=False,
-            time_in_force=_to_enum(TimeInForce, time_in_force),
+            time_in_force=to_enum(TimeInForce, time_in_force),
         )
         return cls._add(request, ts)
 
@@ -118,11 +120,11 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         ts: pd.Timestamp | datetime | None = None,
     ) -> OrderRequest:
         request = LimitOrderRequest(
-            side=_to_enum(OrderSide, side),
+            side=to_enum(OrderSide, side),
             qty=qty,
             symbol=symbol,
             limit_price=limit_price,
-            time_in_force=_to_enum(TimeInForce, time_in_force),
+            time_in_force=to_enum(TimeInForce, time_in_force),
             extended_hours=extended_hours,
         )
         return cls._add(request, ts)
@@ -138,11 +140,11 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         ts: pd.Timestamp | datetime | None = None,
     ) -> OrderRequest:
         request = StopOrderRequest(
-            side=_to_enum(OrderSide, side),
+            side=to_enum(OrderSide, side),
             qty=qty,
             symbol=symbol,
             stop_price=stop_price,
-            time_in_force=_to_enum(TimeInForce, time_in_force),
+            time_in_force=to_enum(TimeInForce, time_in_force),
             extended_hours=False,
         )
         return cls._add(request, ts)
@@ -160,12 +162,12 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         ts: pd.Timestamp | datetime | None = None,
     ) -> OrderRequest:
         request = StopLimitOrderRequest(
-            side=_to_enum(OrderSide, side),
+            side=to_enum(OrderSide, side),
             qty=qty,
             symbol=symbol,
             stop_price=stop_price,
             limit_price=limit_price,
-            time_in_force=_to_enum(TimeInForce, time_in_force),
+            time_in_force=to_enum(TimeInForce, time_in_force),
             extended_hours=extended_hours,
         )
         return cls._add(request, ts)
@@ -182,12 +184,12 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         ts: pd.Timestamp | datetime | None = None,
     ) -> OrderRequest:
         request = TrailingStopOrderRequest(
-            side=_to_enum(OrderSide, side),
+            side=to_enum(OrderSide, side),
             qty=qty,
             symbol=symbol,
             trail_price=trail_price,
             trail_percent=trail_percent,
-            time_in_force=_to_enum(TimeInForce, time_in_force),
+            time_in_force=to_enum(TimeInForce, time_in_force),
             extended_hours=False,
         )
         return cls._add(request, ts)
@@ -197,14 +199,18 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
 
     @classmethod
     def _add(
-        cls, order_request: AlpacaOrderRequest, ts: pd.Timestamp | datetime
+        cls,
+        order_request: AlpacaOrderRequest,
+        ts: pd.Timestamp | datetime | str | None = None,
     ) -> OrderRequest:
         instance = cls(order_request, ts)
         order_request.client_order_id = instance.client_order_id
         return instance
 
     def __init__(
-        self, order_request: AlpacaOrderRequest, ts: pd.Timestamp | datetime | None = None
+        self,
+        order_request: AlpacaOrderRequest,
+        ts: pd.Timestamp | datetime | str | None = None,
     ):
         """
         Private constructor; use one of the following for the public interface:
@@ -213,7 +219,7 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
             - OrderRequest.stop_limit_order
         """
         self.order_request = order_request
-        self.ts = ts or datetime.now(tz=ZoneInfo("America/New_York"))
+        self.ts = to_ts(ts).astimezone(EST)
         OrderRequest._order_requests[self.client_order_id] = self
 
     def __repr__(self):
