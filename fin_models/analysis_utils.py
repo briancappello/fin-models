@@ -686,7 +686,9 @@ class BBANDS(Calculatable):
         )
         median_bbands_spread = np.median(log_diff)
         linreg = linregress(range(1, last_n_bars + 1), log_diff.iloc[-last_n_bars:])
-        self.is_expanding = median_bbands_spread > log_diff.iloc[-last_n_bars] and linreg.slope > 0
+        self.is_expanding = (
+            median_bbands_spread > log_diff.iloc[-last_n_bars] and linreg.slope > 0
+        )
         return self.is_expanding
 
     @property
@@ -717,4 +719,3 @@ class RSI(Calculatable):
         if value := self.rsi.value <= 50:
             return 50 - value
         return -(value - 50)
-    

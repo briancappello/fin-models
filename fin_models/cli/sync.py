@@ -191,8 +191,6 @@ def _multicpu_download_and_parse(urls: list[str]):
 
     if errors or exceptions:
         print(f"Encountered errors downloading {symbol}")
-        wtf = errors or exceptions
-        print(wtf[0].json)
         return symbol
 
     dataframes = []

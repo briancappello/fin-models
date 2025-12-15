@@ -14,6 +14,13 @@ TICKER_IN_PARENTHESIS_RE = re.compile(r"(?P<company_name>.+) \((?P<ticker>[A-Z]+
 
 def get_soup(url, **kwargs) -> BeautifulSoup:
     """Returns an instance of BeautifulSoup for the given URL"""
+    headers = kwargs.get("headers", {})
+    headers |= {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0"
+        )
+    }
+    kwargs["headers"] = headers
     return BeautifulSoup(requests.get(url, **kwargs).content, "lxml")
 
 
