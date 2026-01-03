@@ -98,7 +98,7 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         symbol: str,
         time_in_force: TimeInForce | str = TimeInForce.DAY,
         ts: pd.Timestamp | datetime | None = None,
-    ) -> OrderRequest:
+    ) -> "OrderRequest":
         request = MarketOrderRequest(
             side=to_enum(OrderSide, side),
             qty=qty,
@@ -118,7 +118,7 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         time_in_force: TimeInForce | str = TimeInForce.DAY,
         extended_hours: bool = False,
         ts: pd.Timestamp | datetime | None = None,
-    ) -> OrderRequest:
+    ) -> "OrderRequest":
         request = LimitOrderRequest(
             side=to_enum(OrderSide, side),
             qty=qty,
@@ -138,7 +138,7 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         stop_price: float,
         time_in_force: TimeInForce | str = TimeInForce.DAY,
         ts: pd.Timestamp | datetime | None = None,
-    ) -> OrderRequest:
+    ) -> "OrderRequest":
         request = StopOrderRequest(
             side=to_enum(OrderSide, side),
             qty=qty,
@@ -160,7 +160,7 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         time_in_force: TimeInForce | str = TimeInForce.DAY,
         extended_hours: bool = False,
         ts: pd.Timestamp | datetime | None = None,
-    ) -> OrderRequest:
+    ) -> "OrderRequest":
         request = StopLimitOrderRequest(
             side=to_enum(OrderSide, side),
             qty=qty,
@@ -182,7 +182,7 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         trail_percent: float | None = None,
         time_in_force: TimeInForce | str = TimeInForce.DAY,
         ts: pd.Timestamp | datetime | None = None,
-    ) -> OrderRequest:
+    ) -> "OrderRequest":
         request = TrailingStopOrderRequest(
             side=to_enum(OrderSide, side),
             qty=qty,
@@ -202,7 +202,7 @@ class OrderRequest(metaclass=_OrderRequestMetaclass):
         cls,
         order_request: AlpacaOrderRequest,
         ts: pd.Timestamp | datetime | str | None = None,
-    ) -> OrderRequest:
+    ) -> "OrderRequest":
         instance = cls(order_request, ts)
         order_request.client_order_id = instance.client_order_id
         return instance
