@@ -71,7 +71,7 @@ def bars_since_previous_high(df: pd.DataFrame) -> int:
         return 0
 
     most_recent_higher_ts = higher_bars.index[-1]
-    return len(df) - df.index.get_loc(most_recent_higher_ts) - 1
+    return num_bars_since_ts(df, most_recent_higher_ts)
 
 
 def macd_divergence(df: pd.DataFrame):
@@ -211,13 +211,14 @@ def intraday_volume_multiple_of_median(
     to_time: str = "09:30",
     num_bars: int = 50,
 ) -> pd.DataFrame:
-    try:
-        between_time = df.between_time(from_time, to_time)
-    except:
-        print("*" * 80)
-        print(df.index)
+    between_time = df.between_time(from_time, to_time)
     day_agg = between_time["Volume"].resample("D").sum()
     median_v = day_agg.rolling(num_bars).median()
+
+    latest_median_v = median_v.iloc[-1]
+    if np.isnan(latest_median_v) or latest_median_v == 0:
+        median_v = day_agg.rolling(num_bars).mean()
+
     rv = pd.DataFrame(
         {
             "premarket_volume": day_agg,
