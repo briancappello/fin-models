@@ -4,8 +4,7 @@ import json
 import os
 import shutil
 
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, time, timezone
 
 import pandas as pd
 
@@ -175,11 +174,43 @@ class Store:
 
         # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
         if to_freq < Freq.day:
+            ts = df.index[0]
+            if to_freq == Freq.hour:
+                # for hourly data, first bar is 9:30a - 10a
+                market = [
+                    _agg(
+                        df.between_time("09:30", "10:00", inclusive="left"),
+                        Freq.min_30,
+                        origin=pd.Timestamp.combine(ts.date(), time(9, 30, tzinfo=ts.tz)),
+                    ),
+                    _agg(
+                        df.between_time("10:00", "16:00", inclusive="left"),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(10, 0, tzinfo=ts.tz)),
+                    ),
+                ]
+            else:
+                market = [
+                    _agg(
+                        _openmarket(df),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(9, 30, tzinfo=ts.tz)),
+                    ),
+                ]
+
             agg_df = pd.concat(
                 [
-                    _agg(_premarket(df), to_freq),
-                    _agg(_openmarket(df), to_freq),
-                    _agg(_aftermarket(df), to_freq),
+                    _agg(
+                        _premarket(df),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(4, tzinfo=ts.tz)),
+                    ),
+                    *market,
+                    _agg(
+                        _aftermarket(df),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(16, tzinfo=ts.tz)),
+                    ),
                 ]
             ).sort_index()
         else:
@@ -287,10 +318,10 @@ def _aftermarket(df: pd.DataFrame) -> pd.DataFrame:
     return df.between_time("16:00", "20:00", inclusive="left")
 
 
-def _agg(df: pd.DataFrame, freq: Freq, origin="start") -> pd.DataFrame:
+def _agg(df: pd.DataFrame, freq: Freq, **kwargs) -> pd.DataFrame:
     resample_freq = {
         Freq.month: "MS",
         Freq.quarter: "QS",
         Freq.year: "YS",
     }.get(freq, freq.value)
-    return df.resample(resample_freq, origin=origin).apply(RESAMPLE_COLUMNS).dropna()
+    return df.resample(resample_freq, **kwargs).apply(RESAMPLE_COLUMNS).dropna()
