@@ -12,8 +12,7 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 from fin_models.enums import Freq
 from fin_models.store import Store
 
-
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+from tests.data import load_data
 
 
 @pytest.fixture()
@@ -33,23 +32,6 @@ def full_store() -> t.Generator[Store, None, None]:
         store.write("INTC", Freq.day, load_data("INTC", Freq.day))
         store.write("NVDA", Freq.day, load_data("NVDA", Freq.day))
         yield store
-
-
-def _get_filepath(symbol, freq: Freq) -> str:
-    filename = f"{symbol}.{freq.value if freq < Freq.day else freq.name}.json"
-    filepath = os.path.join(DATA_DIR, filename)
-    return filepath
-
-
-def save_data(symbol, freq: Freq, df: pd.DataFrame):
-    df.to_json(_get_filepath(symbol, freq), orient="split")
-
-
-def load_data(symbol, freq: Freq) -> pd.DataFrame:
-    df = pd.read_json(_get_filepath(symbol, freq), orient="split")
-    df.index = df.index.tz_localize("UTC").tz_convert("America/New_York")  # type: ignore
-    df.index.name = "Epoch"
-    return df[["Open", "High", "Low", "Close", "Volume"]]
 
 
 class TestEmptyStore:
