@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     # store=0.014428415789998325s
     current = timeit(lambda: store.get("AMD", freq=Freq.min_1), number=LOOPS)
-    print(f"store={current/LOOPS}s")
+    print(f"store={current / LOOPS}s")
 
     """
     to_pickle_4/LOOPS=0.007457234550001885s
