@@ -21,11 +21,27 @@ class Bar:
     VWAP: float | None = None
     EpochClose: pd.Timestamp | None = None  # end ts of bar
 
+    @property
+    def is_premarket(self):
+        tt = self.Epoch.timetuple()
+        return tt.tm_hour < 9 or tt.tm_hour == 9 and tt.tm_min < 30
+
+    @property
+    def is_intraday(self):
+        tt = self.Epoch.timetuple()
+        return tt.tm_hour == 9 and tt.tm_min >= 30 or 10 <= tt.tm_hour < 16
+
+    @property
+    def is_aftermarket(self):
+        tt = self.Epoch.timetuple()
+        return tt.tm_hour >= 16
+
     @classmethod
     def from_ws_msg(cls, msg: dict) -> "Bar":
+        # polygon / massive
         try:
             return cls(
-                freq=dict(AM=Freq.min_1)[msg["ev"]],
+                freq=dict(A=Freq.second, AM=Freq.min_1)[msg["ev"]],
                 symbol=msg["sym"],
                 Epoch=pd.Timestamp(msg["s"] * 1_000_000, tz="UTC").tz_convert(
                     "America/New_York"
