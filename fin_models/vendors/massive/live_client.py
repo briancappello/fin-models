@@ -56,8 +56,11 @@ class MassiveLiveClient:
         self.symbols = symbols
 
     def run(self):
-        self._subscribe()
-        self.client.run(self._handle_event, process_exception=self._handle_exception)
+        try:
+            self._subscribe()
+            self.client.run(self._handle_event, process_exception=self._handle_exception)
+        except KeyboardInterrupt:
+            print("\nDisconnecting from Massive...")
 
     def _handle_event(self, raw_msg: str | bytes):
         for msg in json.loads(raw_msg):

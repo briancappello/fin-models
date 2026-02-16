@@ -31,6 +31,7 @@ dependencies = [
     "databento>=0.68.0",
     "massive>=2.0.2",
     "networkx>=3.4.2",
+    "schwab-py>=1.5.1",
 ]
 
 [project.urls]
@@ -52,6 +53,7 @@ dev = [
     "pyqt6>=6.8.0,<7",
     "notebook>=7.5.0",
     "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.uv]

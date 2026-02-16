@@ -5,8 +5,7 @@ import asyncio
 import json
 import math
 
-from collections import defaultdict
-from datetime import date, time
+from datetime import date
 from typing import ItemsView
 
 import pandas as pd
@@ -19,6 +18,7 @@ from alpaca.trading.enums import (
 from websockets.asyncio.client import connect
 
 from fin_models import analysis_utils as au
+from fin_models.bar_handlers import BarHandler
 from fin_models.config import Config
 from fin_models.data_classes import Bar
 from fin_models.date_utils import EST
@@ -27,81 +27,29 @@ from fin_models.enums import Freq
 from fin_models.models import Position
 from fin_models.order_book import OrderRequest
 from fin_models.services import nyse, store
-from fin_models.trading.local_trading_client import TradingClient as LocalTradingClient
 from fin_models.trading.trading_client import TradingClient
-from fin_models.ws.strategy import Strategy
 
 
-URL = "wss://delayed.polygon.io/stocks"
-# URL = "ws://localhost:8765"
+# URL = "wss://delayed.massive.com/stocks"
+URL = "ws://localhost:8765"
 LOCAL_BROKER = "ws://localhost:8777"
 
 
-class CustomStrategy(Strategy):
+class ManualStrategy(BarHandler):
     def __init__(
         self,
-        dt: date,
-        symbols: list[str],
         trading_client: TradingClient,
-    ):
-        super().__init__(dt, symbols, trading_client)
-        self.stats = {}
-        for symbol in symbols:
-            df = store.get(symbol, freq=Freq.day)
-            self.stats[symbol] = au.signal(df, freq=Freq.day)
-        self.signals = []
-        self.premarket_vol = defaultdict(float)
-
-        """
-        client handles keeping track of entry/exit prices
-        client handles staying under account limits
-        server just says "you were filled"
-        """
-
-    def handle_message(self, msg: dict):
-        bar = super().handle_message(msg)
-        if bar.Epoch.time() < time(9, 30):
-            self.premarket_vol[bar.symbol] += bar.Volume
-
-        daily_median_vol = self.stats[bar.symbol]["median_volume"]
-
-        # FIXME
-        # check bullish
-        # check greater than prior close ?
-        if self.premarket_vol[bar.symbol] > daily_median_vol:
-            print(">>>", bar.Epoch)
-
-        if bar.Volume > daily_median_vol:
-            # time since last signal
-            # context relative to SMAs
-            # trading base in prior price history?
-
-            multiple = bar.Volume / daily_median_vol
-            # print(bar, multiple)
-            if multiple > 5:
-                order_request = OrderRequest.limit_order(
-                    side="buy",
-                    qty=1,
-                    symbol=bar.symbol,
-                    limit_price=bar.Close,
-                    extended_hours=True,
-                    ts=bar.Epoch,
-                )
-                order = self.trading_client.submit_order(order_request)
-                print(order_request.ts)
-
-
-class ManualStrategy(Strategy):
-    def __init__(
-        self,
-        dt: date,
         symbols: list[str],
-        trading_client: TradingClient,
+        dt: date,
         breakout_entry_prices: dict[str, float] = None,
         limit_prices: dict[str, float] = None,
         quantities: dict[str, int] = None,
+        **kwargs,
     ):
-        super().__init__(dt, symbols, trading_client)
+        super().__init__(**kwargs)
+        self.trading_client = trading_client
+        self.symbols = symbols
+        self.dt = dt
         self.breakout_entry_prices = breakout_entry_prices or {}
         self.limit_prices = limit_prices or {}
         self.quantities = quantities or {}
@@ -129,8 +77,8 @@ class ManualStrategy(Strategy):
     ):
         return math.floor(dollar_amount / price)
 
-    def handle_message(self, msg: dict):
-        bar: Bar = super().handle_message(msg)
+    def handle_bar(self, bar: Bar, **kwargs) -> None:
+        super().handle_bar(bar)
 
         # add bar to df cache
         df = self.dataframes[bar.symbol]
@@ -230,8 +178,8 @@ class ManualStrategy(Strategy):
 
 
 class WebsocketClient:
-    def __init__(self, strategy: Strategy, url: str = URL):
-        self.strategy = strategy
+    def __init__(self, bar_handler: BarHandler, url: str = URL):
+        self.bar_handler = bar_handler
         self._url = url
         self._connection = None
 
@@ -260,7 +208,8 @@ class WebsocketClient:
         await self._send(
             dict(
                 action="subscribe",
-                params=",".join([f"AM.{symbol}" for symbol in self.strategy.symbols]),
+                params=",".join([f"AM.{symbol}" for symbol in self.bar_handler.symbols]),
+                date=self.bar_handler.dt.isoformat(),
             )
         )
         msg = await self._recv()
@@ -278,7 +227,7 @@ class WebsocketClient:
         # FIXME can you tee together two iterators? (ie ws connections)
         async for msg in self._connection:
             for bar in json.loads(msg):
-                self.strategy.handle_message(bar)
+                self.bar_handler.handle_bar(Bar.from_ws_msg(bar))
 
 
 def parse_arg_pairs(s) -> ItemsView[str, str]:
@@ -337,14 +286,15 @@ if __name__ == "__main__":
     # positions bookkeeping
 
     trading_client = TradingClient(AlpacaTradingClient, paper=False)
+
     client = WebsocketClient(
-        strategy=ManualStrategy(
-            dt=args.date,
-            symbols=args.symbols,
+        bar_handler=ManualStrategy(
             trading_client=trading_client,
+            symbols=args.symbols,
+            dt=args.date,
             breakout_entry_prices=args.breakout_prices,
             limit_prices=args.limit_prices,
             quantities=args.quantities,
-        )
+        ),
     )
     asyncio.run(client.run())

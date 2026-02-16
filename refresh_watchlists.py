@@ -1,122 +1,102 @@
 from __future__ import annotations
 
 import argparse
-import json
+import itertools
 import multiprocessing
-import os
 
 from datetime import date
 
-import numpy as np
 import pandas as pd
 
 from joblib import Parallel, delayed
 
-from fin_models import analysis_utils as au
-from fin_models.config import Config
-from fin_models.enums import Freq
+from fin_models import Bar, Freq
+from fin_models.bar_handlers import BarHandler, History, construct_bar_handlers
 from fin_models.services import nyse, store
+from fin_models.watchlists import MaxMovers, MaxVolumeMultiplesOfMedian, Watchlist
 
 
-results_dir = os.path.join(
-    Config.DATA_DIR,
-    "analysis-results",
-)
-os.makedirs(results_dir, exist_ok=True)
+class AllWatchlists(BarHandler):
+    max_movers: MaxMovers
+    max_volume_multiples_of_median: MaxVolumeMultiplesOfMedian
 
 
-def json_default(o):
-    if isinstance(o, (np.int8, np.int16, np.int32, np.int64)):
-        return int(o)
-    elif isinstance(o, (np.float32, np.float64)):
-        return float(o)
-    elif isinstance(o, np.bool_):
-        return bool(o)
-    elif isinstance(o, (np.ndarray, pd.Index)):
-        return o.tolist()
-    raise TypeError(f"Unable to convert {o!r} ({type(o)} to JSON.")
+def do_it_sequential(
+    freq: Freq,
+    symbols: list[str],
+    dt: pd.Timestamp,
+    save: bool = False,
+) -> dict[type[Watchlist], pd.DataFrame]:
+    # preload daily symbol history
+    history = History(store)
+    bars = []
+    for symbol in symbols:
+        df = store.get(symbol, freq).loc[:dt]
+        history.symbol_data[symbol][freq] = df
+        bar = Bar.from_series(df.iloc[-1], symbol=symbol, freq=freq)
+        bars.append(bar)
+
+    bar_handlers = construct_bar_handlers(AllWatchlists, [history])
+    for bar in bars:
+        for bar_handler in bar_handlers:
+            bar_handler.handle_bar(bar, refresh=False)
+
+    rv: dict[type[Watchlist], pd.DataFrame] = {}
+    wl: Watchlist
+    for wl in [
+        bh for bh in bar_handlers if isinstance(bh, tuple(Watchlist.__subclasses__()))
+    ]:
+        wl_df = wl.get_watchlist_dataframe()
+        rv[wl.__class__] = wl_df
+        if save:
+            wl.save(wl_df)
+    return rv
 
 
-def dump(obj, filepath):
-    with open(filepath, "w") as f:
-        json.dump(obj, f, default=json_default)
+def do_it_parallel(
+    freq: Freq,
+    dt: pd.Timestamp,
+) -> dict[type[Watchlist], pd.DataFrame]:
+    symbols = store.get_symbols(Freq.min_1, dt=dt)
 
+    symbol_partitions = list(
+        itertools.batched(symbols, len(symbols) // multiprocessing.cpu_count())
+    )
 
-def cached_results(
-    cache_filename: str,
-    results: list[dict] | None = None,
-    fresh: bool = False,
-) -> pd.DataFrame:
-    results = results or []
-
-    if not fresh and os.path.exists(cache_filename) and not results:
-        with open(cache_filename) as f:
-            try:
-                results = json.load(f)
-            except json.JSONDecodeError:
-                print(f"corrupt json file: {cache_filename}")
-                results = []
-    elif results:
-        dump(results, cache_filename)
-
-    return pd.DataFrame.from_records(results)
-
-
-def calculate_for_date(dt: date | str, fresh: bool = False) -> pd.DataFrame:
-    dt = pd.Timestamp(dt).date().isoformat()
-    results_filename = os.path.join(results_dir, f"{dt}_results.json")
-
-    df = cached_results(cache_filename=results_filename, fresh=fresh)
-    if df.empty:
-        fn_calls = [
-            delayed(au.signal)(symbol=symbol, dt=dt)
-            for symbol in store.get_symbols(freq=Freq.day)
+    unaggregated_results: list[dict[type[Watchlist], pd.DataFrame]] = Parallel(
+        n_jobs=len(symbol_partitions),
+        backend="multiprocessing",
+    )(
+        [
+            delayed(do_it_sequential)(
+                freq=freq, symbols=symbol_partition, dt=dt, save=False
+            )
+            for symbol_partition in symbol_partitions
         ]
+    )
 
-        r = Parallel(
-            n_jobs=multiprocessing.cpu_count(),
-            backend="multiprocessing",
-        )(fn_calls)
-
-        df = cached_results(results_filename, r)
-    df.set_index("symbol", inplace=True)
-    return df
+    rv = {}
+    wl_class: type[Watchlist]
+    for wl_class in unaggregated_results[0]:
+        wl_df: pd.DataFrame = wl_class.sort(
+            wl_df=pd.concat([d[wl_class] for d in unaggregated_results]).reset_index(
+                drop=True
+            )
+        )
+        wl_class.save(wl_df)
+        rv[wl_class] = wl_df
+    return rv
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--date", type=date.fromisoformat)
-    parser.add_argument("--fresh", action="store_true")
     args = parser.parse_args()
 
-    dt = args.date or nyse.get_latest_trading_date()
-    print(f"Calculating signals for {dt!r}")
+    ts: pd.Timestamp = pd.Timestamp(
+        args.date or nyse.get_latest_trading_date()
+    ).tz_localize("America/New_York")
 
-    df = calculate_for_date(dt, fresh=args.fresh)
-
-    crossed_sma100_filter = df["crossed_sma_100"] & (df["bars_since_prior_high"] > 20)
-
-    vol_multiple_of_median_filter = (df["volume_multiple_of_median"] > 3) & (
-        df["median_volume"] > 1_000
-    )
-    vol_multiple_of_median = df[vol_multiple_of_median_filter][
-        "volume_multiple_of_median"
-    ].sort_values(ascending=False)
-
-    max_gainers_filter = df["pct_change"] > 10
-    max_gainers = df[max_gainers_filter]["pct_change"].sort_values(ascending=False)
-
-    dump(
-        dict(
-            max_gainers={
-                "label": "Max Gainers",
-                "symbols": max_gainers.index,
-            },
-            vol_multiple_of_median={
-                "label": "Vol Multiple Of Median",
-                "symbols": vol_multiple_of_median.index,
-            },
-        ),
-        Config.JSON_WATCHLISTS_PATH,
-    )
-    print(max_gainers)
+    print(f"Calculating watchlists for {ts!r}")
+    do_it_parallel(freq=Freq.day, dt=ts)
+    print("Done.")

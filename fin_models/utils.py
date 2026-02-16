@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import importlib
 import re
 
 import pandas as pd
@@ -10,6 +11,12 @@ from bs4 import BeautifulSoup
 
 
 TICKER_IN_PARENTHESIS_RE = re.compile(r"(?P<company_name>.+) \((?P<ticker>[A-Z]+)\)")
+
+
+def get_class_from_module(loc):
+    module_path, class_name = loc.split(":")
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)
 
 
 def get_soup(url, **kwargs) -> BeautifulSoup:

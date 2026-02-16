@@ -42,7 +42,6 @@ class TestEmptyStore:
 @pytest.mark.parametrize("freq", list(Freq))
 class TestEmptyStoreWithFreq:
     def test_no_symbols(self, store, freq):
-        assert store.get_symbols() == []
         assert store.get_symbols(freq) == []
 
     def test_has_returns_false(self, store, freq):
@@ -66,7 +65,6 @@ class TestStoreWithData:
         symbols = ["AMD", "INTC", "NVDA"]
         for symbol in symbols:
             os.makedirs(os.path.join(store._root_dir, symbol))
-        assert store.get_symbols() == symbols
 
         for freq in Freq:
             assert store.get_symbols(freq) == []

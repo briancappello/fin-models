@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from scipy.stats import linregress
 
 from fin_models.data_classes import Bar
 from fin_models.enums import Freq
-from fin_models.services import nyse, store
+from fin_models.store import RESAMPLE_COLUMNS
 
 
 """
@@ -209,23 +209,48 @@ def intraday_volume_multiple_of_median(
     df: pd.DataFrame,
     from_time: str = "04:00",
     to_time: str = "09:30",
+    inclusive: Literal["left", "right", "both", "neither"] = "left",
     num_bars: int = 50,
-) -> pd.DataFrame:
-    between_time = df.between_time(from_time, to_time)
-    day_agg = between_time["Volume"].resample("D").sum()
-    median_v = day_agg.rolling(num_bars).median()
+) -> dict:
+    """
+    Aggregates the daily history for the times between from_time and to_time. If
+    the times are from 09:30 to 10:00, for every first 10 minutes of the regular
+    market session in `df`, calculate those
 
+    """
+    between_time = (
+        df.between_time(from_time, to_time, inclusive=inclusive)
+        .resample("D")
+        .apply(RESAMPLE_COLUMNS)
+        .dropna()
+    )
+    if len(between_time) < num_bars:
+        between_time = (
+            df.between_time("04:00", "20:00")
+            .resample("D")
+            .apply(RESAMPLE_COLUMNS)
+            .dropna()
+        )
+    day_agg = between_time["Volume"]
+
+    median_v = day_agg.rolling(num_bars).median()
+    if median_v.empty:
+        return {
+            "volume": 0,
+            "median_volume": 0,
+            "volume_multiple_of_median": 0,
+        }
+
+    # if median_v is 0, use mean instead
     latest_median_v = median_v.iloc[-1]
     if np.isnan(latest_median_v) or latest_median_v == 0:
         median_v = day_agg.rolling(num_bars).mean()
 
-    rv = pd.DataFrame(
-        {
-            "premarket_volume": day_agg,
-            "premarket_volume_median": median_v,
-            "premarket_volume_multiple_of_median": day_agg / median_v,
-        }
-    )
+    rv = {
+        "volume": day_agg.iloc[-1],
+        "median_volume": median_v.iloc[-1],
+        "volume_multiple_of_median": day_agg.iloc[-1] / median_v.iloc[-1],
+    }
     return rv
 
 
@@ -481,18 +506,6 @@ def signal(df: pd.DataFrame, freq: Freq) -> dict:
     return result
 
 
-def get_watchlist_data(symbol: str, day_df: pd.DataFrame, min_df: pd.DataFrame):
-    current_date = min_df.iloc[-1].name.date()
-    prior_date = nyse.get_prior_trading_date(current_date)
-    premarket_volume_multiple_of_median = intraday_volume_multiple_of_median(min_df)[
-        "premarket_volume_multiple_of_median"
-    ].iloc[-1]
-    return dict(
-        ticker=symbol,
-        premarket_volume_multiple_of_median=premarket_volume_multiple_of_median,
-    )
-
-
 """
 every indicator:
 ================
@@ -594,25 +607,24 @@ class PriceLineCross:
     over_under_line_name = "NameOfSomeLine"
 
 
-class Candle:
-    def get_candles(self, df: pd.DataFrame) -> dict[str, dict[str, str | int]]:
-        candle_names = {
-            name: ta_abstract.Function(name).info["display_name"]
-            for name in ta.get_function_groups()["Pattern Recognition"]
-        }
+def get_candles(df: pd.DataFrame) -> dict[str, dict[str, str | int]]:
+    candle_fn_display_names = {
+        name: ta_abstract.Function(name).info["display_name"]
+        for name in ta.get_function_groups()["Pattern Recognition"]
+    }
 
-        def is_candle(fn_name):
-            fn = getattr(ta, fn_name)
-            return fn(df.Open, df.High, df.Low, df.Close).iloc[-1]
+    def is_candle(fn_name):
+        fn = getattr(ta, fn_name)
+        return fn(df.Open, df.High, df.Low, df.Close).iloc[-1]
 
-        rv = {}
-        for candle_name in candle_names:
-            if r := is_candle(df):
-                rv[candle_name] = {
-                    "name": candle_names[candle_name],
-                    "value": r,
-                }
-        return rv
+    rv = {}
+    for fn_name, display_name in candle_fn_display_names.items():
+        if r := is_candle(fn_name):
+            rv[fn_name] = {
+                "name": candle_fn_display_names[display_name],
+                "value": r,
+            }
+    return rv
 
 
 class BarsSincePreviousHigh:

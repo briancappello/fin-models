@@ -10,6 +10,10 @@ class DictClass(type):
 
 class Config(metaclass=DictClass):
     DATA_DIR: str = os.path.expanduser("~/.fin-models-data")
+    SYMBOLS_DIR = os.path.join(DATA_DIR, "symbol-data")
+    WATCHLISTS_DIR = os.path.join(DATA_DIR, "watchlists")
+
+    # deprecated
     SYMBOLS_DATA_FILEPATH = os.path.join(DATA_DIR, "symbols.json")
     JSON_WATCHLISTS_PATH = os.path.join(DATA_DIR, "watchlists.json")
 

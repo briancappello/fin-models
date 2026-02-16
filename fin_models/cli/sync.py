@@ -58,12 +58,19 @@ from .groups import main
     default="day",
     help="Frequency to initialize or update (minute or day, default day)",
 )
+@click.option(
+    "--refresh",
+    is_flag=True,
+    flag_value=True,
+    default=False,
+)
 def sync_command(
     symbols: str | None = None,
     types: list[str] | str | None = None,
     start: str | None = None,
     end: str | None = None,
     freq: str = "day",
+    refresh: bool = False,
 ):
     """
     Initialize or update historical data from Polygon
@@ -90,6 +97,7 @@ def sync_command(
         freq=freq,
         start=start,
         end=end,
+        refresh=refresh,
     )
 
 
@@ -98,6 +106,7 @@ def init_or_update(
     freq: Freq,
     start: DateType | None = None,
     end: DateType | None = None,
+    refresh: bool = False,
 ):
     if freq not in {Freq.min_1, Freq.day}:
         raise NotImplementedError(
@@ -114,17 +123,22 @@ def init_or_update(
         - pd.Timedelta(days=365 * Config.POLYGON_NUM_HISTORICAL_YEARS_AVAILABLE),
     )
 
-    for split in polygon.get_splits(dt=end_ts):
+    split_symbols = [
+        split["ticker"]
+        for split in polygon.get_splits(
+            dt=end_ts.astimezone("America/New_York").date().isoformat()
+        )
+    ]
+    refresh_symbols = split_symbols + (symbols if refresh else [])
+    for symbol in refresh_symbols:
         # FIXME handle re-fetching all stored frequencies?
-        store._delete_all(symbol=split["ticker"])
+        store._delete_freq(symbol=symbol, freq=freq)
 
-    symbol_start_dates = {}
-    for symbol in symbols:
-        historical_metadata = store.get_historical_metadata(symbol, freq)
-        if start or historical_metadata is None:
-            symbol_start_dates[symbol] = start_ts
-        else:
-            symbol_start_dates[symbol] = historical_metadata.latest_bar_utc
+    symbol_start_dates = {symbol: start_ts for symbol in symbols}
+    if not refresh and not start:
+        for symbol in symbols:
+            if historical_metadata := store.get_historical_metadata(symbol, freq):
+                symbol_start_dates[symbol] = historical_metadata.latest_bar_utc
 
     count = 0
     if freq == Freq.day:

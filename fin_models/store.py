@@ -27,10 +27,17 @@ RESAMPLE_COLUMNS = {
 }
 
 
-class Store:
-    # FIXME: take parametrized data vendor and trading calendar?
+class DataframeGetter:
+    def get(self, symbol: str, freq: Freq, **kwargs) -> pd.DataFrame:
+        raise NotImplementedError
+
+    def get_symbols(self, freq: Freq, dt: DateType = None) -> list[str]:
+        raise NotImplementedError
+
+
+class Store(DataframeGetter):
     def __init__(self, _root_dir: str | None = None):
-        self._root_dir = _root_dir or os.path.join(Config.DATA_DIR, "symbol-data")
+        self._root_dir = _root_dir or Config.SYMBOLS_DIR
         os.makedirs(self._root_dir, exist_ok=True)
 
     def get(
@@ -97,7 +104,6 @@ class Store:
 
         with open(filepath) as f:
             data: dict = json.loads(f.read())
-            data.setdefault("latest_sync_utc", datetime.now(tz=timezone.utc))
             return HistoricalMetadataSerializer().load(data)
 
     def get_latest_dt(self, symbol: str, freq: Freq) -> datetime | None:
@@ -118,11 +124,11 @@ class Store:
         """
         return os.path.exists(self._path(symbol, freq))
 
-    def get_symbols(self, freq: Freq | None = None) -> list[str]:
+    def get_symbols(self, freq: Freq, dt: DateType = None) -> list[str]:
         """
         Get a list of all ticker symbols in the store.
         """
-        return list(
+        symbols = list(
             sorted(
                 {
                     dir_entry.name
@@ -135,6 +141,15 @@ class Store:
                 }
             )
         )
+        if dt:
+            up_to_date_symbols = []
+            for symbol in symbols:
+                if metadata := self.get_historical_metadata(symbol, freq):
+                    if metadata.latest_bar_dt.date().isoformat() == dt.date().isoformat():
+                        up_to_date_symbols.append(symbol)
+            return up_to_date_symbols
+
+        return symbols
 
     def write(self, symbol: str, freq: Freq, bars: pd.DataFrame) -> pd.DataFrame | None:
         """
@@ -192,7 +207,7 @@ class Store:
             else:
                 market = [
                     _agg(
-                        _openmarket(df),
+                        between_time_intraday(df),
                         to_freq,
                         origin=pd.Timestamp.combine(ts.date(), time(9, 30, tzinfo=ts.tz)),
                     ),
@@ -201,13 +216,13 @@ class Store:
             agg_df = pd.concat(
                 [
                     _agg(
-                        _premarket(df),
+                        between_time_premarket(df),
                         to_freq,
                         origin=pd.Timestamp.combine(ts.date(), time(4, tzinfo=ts.tz)),
                     ),
                     *market,
                     _agg(
-                        _aftermarket(df),
+                        between_time_aftermarket(df),
                         to_freq,
                         origin=pd.Timestamp.combine(ts.date(), time(16, tzinfo=ts.tz)),
                     ),
@@ -306,15 +321,15 @@ class Store:
         shutil.rmtree(os.path.join(self._root_dir, symbol.upper()), ignore_errors=True)
 
 
-def _premarket(df: pd.DataFrame) -> pd.DataFrame:
+def between_time_premarket(df: pd.DataFrame) -> pd.DataFrame:
     return df.between_time("04:00", "09:30", inclusive="left")
 
 
-def _openmarket(df: pd.DataFrame) -> pd.DataFrame:
+def between_time_intraday(df: pd.DataFrame) -> pd.DataFrame:
     return df.between_time("09:30", "16:00", inclusive="left")
 
 
-def _aftermarket(df: pd.DataFrame) -> pd.DataFrame:
+def between_time_aftermarket(df: pd.DataFrame) -> pd.DataFrame:
     return df.between_time("16:00", "20:00", inclusive="left")
 
 
