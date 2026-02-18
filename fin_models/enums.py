@@ -93,12 +93,13 @@ class OrderedEnum(Enum, metaclass=OrderedEnumMeta):
 
 
 class AssetType(Enum):
-    Asset = 'Asset'
-    Equity = 'Equity'
+    Asset = "Asset"
+    Equity = "Equity"
 
 
 # https://pandas.pydata.org/docs/user_guide/timeseries.html#period-aliases
 class Freq(OrderedEnum):
+    second = "s"
     min_1 = "1min"
     min_2 = "2min"
     min_5 = "5min"

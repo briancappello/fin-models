@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 
-from datetime import datetime
+from datetime import datetime, time, timezone
 
 import pandas as pd
 
 from fin_models.config import Config
 from fin_models.data_classes import CompanyDetails, HistoricalMetadata
+from fin_models.date_utils import EST, DateType
 from fin_models.enums import Freq
 from fin_models.serializers import (
     CompanyDetailsSerializer,
@@ -35,6 +37,8 @@ class Store:
         self,
         symbol: str,
         freq: Freq = Freq.day,
+        start_dt: DateType | str | None = None,
+        end_dt: DateType | str | None = None,
         columns=("Open", "High", "Low", "Close", "Volume"),
     ) -> pd.DataFrame | None:
         """
@@ -49,9 +53,30 @@ class Store:
             return None
 
         df = df[list(columns)]
-        if source_freq == freq or df.empty:
+        if df.empty:
             return df
-        return self.agg(df, freq)
+        elif source_freq != freq:
+            df = self.agg(df, freq)
+
+        start_ts = None
+        end_ts = None
+        if start_dt:
+            start_ts = pd.Timestamp(start_dt)
+            if start_ts.tzinfo is None:
+                start_ts = start_ts.tz_localize(EST)
+        if end_dt:
+            end_ts = pd.Timestamp(end_dt)
+            if end_ts.tzinfo is None:
+                end_ts = end_ts.tz_localize(EST)
+
+        if start_ts and end_ts:
+            return df.loc[start_ts:end_ts]
+        elif start_ts:
+            return df.loc[start_ts:]
+        elif end_ts:
+            return df.loc[:end_ts]
+
+        return df
 
     def get_company_details(self, symbol: str) -> CompanyDetails | None:
         filepath = self._company_details_path(symbol)
@@ -62,14 +87,18 @@ class Store:
             return CompanyDetailsSerializer().loads(f.read())
 
     def get_historical_metadata(
-        self, symbol: str, freq: Freq
+        self,
+        symbol: str,
+        freq: Freq,
     ) -> HistoricalMetadata | None:
         filepath = self._historical_metadata_path(symbol, freq)
         if not os.path.exists(filepath):
             return None
 
         with open(filepath) as f:
-            return HistoricalMetadataSerializer().loads(f.read())
+            data: dict = json.loads(f.read())
+            data.setdefault("latest_sync_utc", datetime.now(tz=timezone.utc))
+            return HistoricalMetadataSerializer().load(data)
 
     def get_latest_dt(self, symbol: str, freq: Freq) -> datetime | None:
         data = self.get_historical_metadata(symbol, freq)
@@ -89,7 +118,7 @@ class Store:
         """
         return os.path.exists(self._path(symbol, freq))
 
-    def symbols(self, freq: Freq | None = None) -> list[str]:
+    def get_symbols(self, freq: Freq | None = None) -> list[str]:
         """
         Get a list of all ticker symbols in the store.
         """
@@ -112,13 +141,13 @@ class Store:
         Write or append bars to the store for a given symbol and frequency.
         """
         if bars.empty:
-            return self.get(symbol, freq)
+            return self.get(symbol, freq=freq)
 
         if not self.has_freq(symbol, freq):
             self._write(symbol, freq, bars)
             return bars
 
-        old = self.get(symbol, freq)
+        old = self.get(symbol, freq=freq)
         index_intersection = old.index.intersection(bars.index, sort=True)
         if index_intersection.empty:
             new_df = pd.concat([old, bars])
@@ -145,11 +174,43 @@ class Store:
 
         # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
         if to_freq < Freq.day:
+            ts = df.index[0]
+            if to_freq == Freq.hour:
+                # for hourly data, first bar is 9:30a - 10a
+                market = [
+                    _agg(
+                        df.between_time("09:30", "10:00", inclusive="left"),
+                        Freq.min_30,
+                        origin=pd.Timestamp.combine(ts.date(), time(9, 30, tzinfo=ts.tz)),
+                    ),
+                    _agg(
+                        df.between_time("10:00", "16:00", inclusive="left"),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(10, 0, tzinfo=ts.tz)),
+                    ),
+                ]
+            else:
+                market = [
+                    _agg(
+                        _openmarket(df),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(9, 30, tzinfo=ts.tz)),
+                    ),
+                ]
+
             agg_df = pd.concat(
                 [
-                    _agg(_premarket(df), to_freq),
-                    _agg(_openmarket(df), to_freq),
-                    _agg(_aftermarket(df), to_freq),
+                    _agg(
+                        _premarket(df),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(4, tzinfo=ts.tz)),
+                    ),
+                    *market,
+                    _agg(
+                        _aftermarket(df),
+                        to_freq,
+                        origin=pd.Timestamp.combine(ts.date(), time(16, tzinfo=ts.tz)),
+                    ),
                 ]
             ).sort_index()
         else:
@@ -170,7 +231,10 @@ class Store:
             f.write(CompanyDetailsSerializer().dumps(data))
 
     def _write_historical_metadata(
-        self, symbol: str, freq: Freq, df: pd.DataFrame
+        self,
+        symbol: str,
+        freq: Freq,
+        df: pd.DataFrame,
     ) -> HistoricalMetadata | None:
         if df is None or df.empty:
             return
@@ -178,6 +242,7 @@ class Store:
         bar = df.iloc[-1]
         data = HistoricalMetadata(
             freq=freq,
+            latest_sync_utc=datetime.now(tz=timezone.utc),  # type: ignore
             first_bar_utc=df.iloc[0].name,  # type: ignore
             latest_bar_utc=bar.name,  # type: ignore
             Open=bar.Open,
@@ -253,10 +318,10 @@ def _aftermarket(df: pd.DataFrame) -> pd.DataFrame:
     return df.between_time("16:00", "20:00", inclusive="left")
 
 
-def _agg(df: pd.DataFrame, freq: Freq, origin="start") -> pd.DataFrame:
+def _agg(df: pd.DataFrame, freq: Freq, **kwargs) -> pd.DataFrame:
     resample_freq = {
         Freq.month: "MS",
         Freq.quarter: "QS",
         Freq.year: "YS",
     }.get(freq, freq.value)
-    return df.resample(resample_freq, origin=origin).apply(RESAMPLE_COLUMNS).dropna()
+    return df.resample(resample_freq, **kwargs).apply(RESAMPLE_COLUMNS).dropna()

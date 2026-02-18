@@ -54,7 +54,7 @@ class StrategyRunner:
         symbols: list[str] | None = None,
         date: DateType | None = None,
     ) -> tuple[pd.DataFrame, list[tuple[str, str]]]:
-        symbols = symbols or self.symbols or self.store.symbols()
+        symbols = symbols or self.symbols or self.store.get_symbols()
         date = (
             date or self.calendar.get_latest_trading_date_schedule().market_close
         ).isoformat()[:10]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import pandas_market_calendars as mcal
@@ -24,11 +24,18 @@ class Calendar:
     ):
         return self.calendar.schedule(
             start_date=to_ts(start),
-            end_date=to_ts(end),
+            end_date=to_ts(end)
+            if end
+            else self.get_latest_trading_date(include_extended=include_extended),
             start="pre" if include_extended else "market_open",
             end="post" if include_extended else "market_close",
             tz=self.tz,
         )
+
+    def get_date_n_daily_bars_ago(self, num_bars_ago: int) -> date:
+        end = self.get_latest_trading_date()
+        schedule = self.schedule(start=end - timedelta(days=num_bars_ago * 2), end=end)
+        return schedule.iloc[-num_bars_ago].name.date()
 
     def get_latest_trading_date_schedule(
         self,
@@ -60,6 +67,11 @@ class Calendar:
             include_extended=include_extended,
         ).name.date()
 
+    def get_prior_trading_date(self, current_date=None):
+        end = to_ts(current_date) if current_date else self.get_latest_trading_date()
+        schedule = self.schedule(start=end - TIME_BUFFER, end=end, include_extended=True)
+        return schedule.index[-2].date()
+
     def get_valid_dates(
         self,
         start: DateType | str,
@@ -88,3 +100,8 @@ class Calendar:
             include_extended=include_extended,
         )
         return self.calendar.open_at_time(schedule, at_ts)
+
+    def is_extended_hours(self, at_ts: DateType | str | None = None) -> bool:
+        return self.is_market_open(
+            at_ts, include_extended=True
+        ) and not self.is_market_open(at_ts, include_extended=False)

@@ -28,7 +28,7 @@ def symbols_command(types: list[str] | str | None = None):
     data = get_and_save_symbols_data(types)
 
     for t in types:
-        print(f'{t}: {len([d for d in data if d["type"] == t])}')
+        print(f"{t}: {len([d for d in data if d['type'] == t])}")
 
 
 def get_and_save_symbols_data(types: list[str] | str | None = None) -> list[dict]:

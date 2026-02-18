@@ -1,5 +1,7 @@
 *.egg-info
 *.pyc
+*.ipynb
+.ipynb_checkpoints/
 .coverage
 .cache/
 .pytest_cache/

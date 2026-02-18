@@ -10,4 +10,9 @@ def main():
 
 @main.group()
 def yahoo():
-    """Commands for Yahoo! Finance"""
+    """Yahoo! Finance commands"""
+
+
+@main.group()
+def trade():
+    """Alpaca commands"""

@@ -265,6 +265,10 @@ def normalize_ticker_types(types: TickerTypes | None = None) -> list[str]:
     return [TickerType[t].name for t in types]
 
 
+def get_ticker(symbol: str) -> dict:
+    return _get(f"/v3/reference/tickers/{symbol}").get("results")
+
+
 def get_tickers(types: TickerTypes | None = None) -> list[dict]:
     """
     Get a list of all tickers data supported by Polygon by share class type.

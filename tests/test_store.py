@@ -12,8 +12,7 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 from fin_models.enums import Freq
 from fin_models.store import Store
 
-
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+from tests.data import load_data
 
 
 @pytest.fixture()
@@ -35,23 +34,6 @@ def full_store() -> t.Generator[Store, None, None]:
         yield store
 
 
-def _get_filepath(symbol, freq: Freq) -> str:
-    filename = f"{symbol}.{freq.value if freq < Freq.day else freq.name}.json"
-    filepath = os.path.join(DATA_DIR, filename)
-    return filepath
-
-
-def save_data(symbol, freq: Freq, df: pd.DataFrame):
-    df.to_json(_get_filepath(symbol, freq), orient="split")
-
-
-def load_data(symbol, freq: Freq) -> pd.DataFrame:
-    df = pd.read_json(_get_filepath(symbol, freq), orient="split")
-    df.index = df.index.tz_localize("UTC").tz_convert("America/New_York")  # type: ignore
-    df.index.name = "Epoch"
-    return df[["Open", "High", "Low", "Close", "Volume"]]
-
-
 class TestEmptyStore:
     def test_get_company_details_returns_none(self, store):
         assert store.get_company_details("AMD") is None
@@ -60,8 +42,8 @@ class TestEmptyStore:
 @pytest.mark.parametrize("freq", list(Freq))
 class TestEmptyStoreWithFreq:
     def test_no_symbols(self, store, freq):
-        assert store.symbols() == []
-        assert store.symbols(freq) == []
+        assert store.get_symbols() == []
+        assert store.get_symbols(freq) == []
 
     def test_has_returns_false(self, store, freq):
         assert store.has("AMD", freq) is False
@@ -84,32 +66,32 @@ class TestStoreWithData:
         symbols = ["AMD", "INTC", "NVDA"]
         for symbol in symbols:
             os.makedirs(os.path.join(store._root_dir, symbol))
-        assert store.symbols() == symbols
+        assert store.get_symbols() == symbols
 
         for freq in Freq:
-            assert store.symbols(freq) == []
+            assert store.get_symbols(freq) == []
 
     def test_symbols_with_freq(self, full_store):
         symbols = ["AMD", "INTC", "NVDA"]
         frequencies_with_data = [Freq.min_1, Freq.day]
         for freq in frequencies_with_data:
-            assert full_store.symbols(freq) == symbols
+            assert full_store.get_symbols(freq) == symbols
 
         for freq in [f for f in Freq if f not in frequencies_with_data]:
-            assert full_store.symbols(freq) == []
+            assert full_store.get_symbols(freq) == []
 
     def test_has_freq(self, full_store):
         frequencies_with_data = [Freq.min_1, Freq.day]
         for freq in frequencies_with_data:
-            for symbol in full_store.symbols(freq):
+            for symbol in full_store.get_symbols(freq):
                 assert full_store.has_freq(symbol, freq)
 
         for freq in [f for f in Freq if f not in frequencies_with_data]:
-            for symbol in full_store.symbols(freq):
+            for symbol in full_store.get_symbols(freq):
                 assert not full_store.has_freq(symbol, freq)
 
     def test_get_source_freq(self, full_store):
-        min_1_source_frequencies = Freq[: Freq.day]
+        min_1_source_frequencies = Freq[Freq.min_1 : Freq.day]
         day_source_frequencies = Freq[Freq.day :]
 
         for freq in min_1_source_frequencies:
@@ -118,18 +100,18 @@ class TestStoreWithData:
             assert full_store._get_source_freq("AMD", freq) == Freq.day
 
         full_store._delete_freq("AMD", Freq.day)
-        for freq in Freq:
+        for freq in Freq[Freq.min_1 :]:
             assert full_store._get_source_freq("AMD", freq) == Freq.min_1
 
     def test_get(self, full_store):
         for freq in [Freq.min_1, Freq.day]:
-            for symbol in full_store.symbols(freq):
+            for symbol in full_store.get_symbols(freq):
                 expected = load_data(symbol, freq)
                 df = full_store.get(symbol, freq)
                 assert_frame_equal(df, expected)
 
     def test_agg(self):
-        pass
+        pass  # FIXME
 
     def test_write(self, store):
         expected = load_data("AMD", Freq.day)

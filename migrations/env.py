@@ -1,4 +1,4 @@
-from __future__ import annotations, with_statement
+from __future__ import annotations
 
 from logging.config import fileConfig
 
@@ -41,7 +41,9 @@ def run_migrations_offline():
 
     """
     context.configure(
-        url=Config.DATABASE_URI, target_metadata=target_metadata, literal_binds=True
+        url=Config.DATABASE_URI,
+        target_metadata=target_metadata,
+        literal_binds=True,
     )
 
     with context.begin_transaction():

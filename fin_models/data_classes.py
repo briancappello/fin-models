@@ -9,6 +9,95 @@ from fin_models.enums import Freq
 
 
 @dataclass(kw_only=True)
+class Bar:
+    Epoch: pd.Timestamp  # start ts of bar
+    Open: float
+    High: float
+    Low: float
+    Close: float
+    Volume: int | float
+    freq: Freq | None = None
+    symbol: str | None = None
+    VWAP: float | None = None
+    EpochClose: pd.Timestamp | None = None  # end ts of bar
+
+    @property
+    def is_premarket(self):
+        tt = self.Epoch.timetuple()
+        return tt.tm_hour < 9 or tt.tm_hour == 9 and tt.tm_min < 30
+
+    @property
+    def is_intraday(self):
+        tt = self.Epoch.timetuple()
+        return tt.tm_hour == 9 and tt.tm_min >= 30 or 10 <= tt.tm_hour < 16
+
+    @property
+    def is_aftermarket(self):
+        tt = self.Epoch.timetuple()
+        return tt.tm_hour >= 16
+
+    @classmethod
+    def from_ws_msg(cls, msg: dict) -> "Bar":
+        # polygon / massive
+        try:
+            return cls(
+                freq=dict(A=Freq.second, AM=Freq.min_1)[msg["ev"]],
+                symbol=msg["sym"],
+                Epoch=pd.Timestamp(msg["s"] * 1_000_000, tz="UTC").tz_convert(
+                    "America/New_York"
+                ),
+                EpochClose=pd.Timestamp(msg["e"] * 1_000_000, tz="UTC").tz_convert(
+                    "America/New_York"
+                ),
+                Open=msg["o"],
+                High=msg["h"],
+                Low=msg["l"],
+                Close=msg["c"],
+                Volume=int(msg["v"]),
+                VWAP=msg["vw"],
+            )
+        except Exception as e:
+            print(msg)
+            raise e
+
+    @classmethod
+    def from_series(
+        cls,
+        bar: pd.Series,
+        symbol: str | None = None,
+        freq: Freq | None = None,
+    ) -> "Bar":
+        return cls(
+            freq=freq,
+            symbol=symbol,
+            Epoch=bar.name,
+            Open=bar.Open,
+            High=bar.High,
+            Low=bar.Low,
+            Close=bar.Close,
+            Volume=bar.Volume,
+        )
+
+    def to_series(self):
+        return pd.Series(
+            data={
+                "Open": self.Open,
+                "High": self.High,
+                "Low": self.Low,
+                "Close": self.Close,
+                "Volume": self.Volume,
+            },
+            name=self.Epoch,
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self) -> str:
+        return f"Bar(symbol={self.symbol}, freq={self.freq}, ts={self.Epoch.isoformat()}, O={self.Open}, H={self.High}, L={self.Low}, C={self.Close}, V={self.Volume})"
+
+
+@dataclass(kw_only=True)
 class Address:
     address1: str
     city: str
@@ -53,6 +142,7 @@ class CompanyDetails:
 @dataclass(kw_only=True)
 class HistoricalMetadata:
     freq: Freq
+    latest_sync_utc: pd.Timestamp
     first_bar_utc: pd.Timestamp
     latest_bar_utc: pd.Timestamp
     Open: float
@@ -61,6 +151,18 @@ class HistoricalMetadata:
     Close: float
     Volume: float
     timezone: str = "America/New_York"
+
+    @property
+    def latest_sync_utc(self) -> pd.Timestamp:
+        return self._latest_sync_utc
+
+    @latest_sync_utc.setter
+    def latest_sync_utc(self, value: pd.Timestamp | datetime | str) -> None:
+        self._latest_sync_utc = pd.Timestamp(value).astimezone("UTC")
+
+    @property
+    def latest_sync_dt(self) -> pd.Timestamp:
+        return self.latest_sync_utc.astimezone(self.timezone)
 
     @property
     def first_bar_utc(self) -> pd.Timestamp:

@@ -24,18 +24,20 @@ from alpaca.trading.requests import (
 )
 
 from fin_models.config import Config
-from fin_models.order_book import OrderRequest
-from fin_models.trading.private_alpaca import TradingClient as PrivateTradingClient
+from fin_models.order_book import OrderRequest, to_enum
+from fin_models.trading.local_trading_client import TradingClient as LocalTradingClient
 
 
 class TradingClient:
     """
     Public interface for abstracting away specific broker implementations.
+
+    # FIXME database order tracking
     """
 
     def __init__(
         self,
-        client_class: type[AlpacaTradingClient | PrivateTradingClient],
+        client_class: type[AlpacaTradingClient | LocalTradingClient],
         paper: bool = True,
     ):
         kwargs = dict(
@@ -73,7 +75,7 @@ class TradingClient:
         )
 
     def submit_order(self, order_request: OrderRequest) -> Order:
-        return self.client.submit_order(request=order_request.order_request)
+        return self.client.submit_order(order_data=order_request.order_request)
 
     def get_order(
         self,
@@ -91,18 +93,18 @@ class TradingClient:
     def get_orders(
         self,
         *,
-        status: QueryOrderStatus = QueryOrderStatus.OPEN,
+        status: QueryOrderStatus | str = QueryOrderStatus.OPEN,
         after: datetime | None = None,
-        side: OrderSide | None = None,
+        side: OrderSide | str | None = None,
         symbols: list[str] | None = None,
         limit: int = 500,
     ) -> list[Order]:
         return self.client.get_orders(
             GetOrdersRequest(
-                status=status,
+                status=to_enum(QueryOrderStatus, status),
                 limit=limit,
                 after=after,
-                direction=side,
+                direction=to_enum(OrderSide, side) if side else None,
                 symbols=symbols,
             )
         )
@@ -117,7 +119,9 @@ class TradingClient:
         except APIError:
             return None
 
-    def get_positions(self) -> list[Position]:
+    def get_positions(self, symbol: str | None = None) -> list[Position]:
+        if symbol:
+            return [self.client.get_open_position(symbol.upper())]
         return self.client.get_all_positions()
 
     def close_position(self, symbol: str) -> Order:

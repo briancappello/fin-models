@@ -70,7 +70,7 @@ def calculate_for_date(dt: date | str, fresh: bool = False) -> pd.DataFrame:
     if df.empty:
         fn_calls = [
             delayed(au.signal)(symbol=symbol, dt=dt)
-            for symbol in store.symbols(freq=Freq.day)
+            for symbol in store.get_symbols(freq=Freq.day)
         ]
 
         r = Parallel(

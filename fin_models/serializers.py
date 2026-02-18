@@ -74,6 +74,7 @@ class HistoricalMetadataSerializer(BaseSerializer):
     __model__ = HistoricalMetadata
 
     freq = fields.Enum(Freq, by_value=True)
+    latest_sync_utc = TimestampUTC()
     first_bar_utc = TimestampUTC()
     latest_bar_utc = TimestampUTC()
     timezone = fields.String(load_default="America/New_York")
